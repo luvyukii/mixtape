@@ -1,6 +1,5 @@
 package com.mixtape.player.ui.components
 
-import android.graphics.Bitmap
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -52,12 +51,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.ImageShader
-import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
@@ -69,7 +63,6 @@ import com.mixtape.player.ui.theme.Tac
 import kotlinx.coroutines.delay
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
-import java.util.Random
 
 val TacButtonShape = CutCornerShape(topStart = 4.dp, bottomEnd = 4.dp)
 
@@ -124,10 +117,15 @@ fun TacPanel(
     title: String,
     modifier: Modifier = Modifier,
     trailing: String? = null,
+    glyph: ImageVector? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            if (glyph != null) {
+                Icon(glyph, null, tint = Tac.GreenMid, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(8.dp))
+            }
             Text(title.uppercase(), style = MaterialTheme.typography.labelMedium, color = Tac.GreenMid)
             Spacer(Modifier.width(12.dp))
             Box(
@@ -164,24 +162,11 @@ fun TacLabel(text: String, modifier: Modifier = Modifier, count: Int? = null) {
     }
 }
 
-/** Static film grain, generated once and tiled. */
-private val grain: ImageBitmap by lazy {
-    val size = 192
-    val rnd = Random(1977)
-    val px = IntArray(size * size) {
-        val v = if (rnd.nextBoolean()) 255 else 0
-        val a = rnd.nextInt(26)
-        (a shl 24) or (v shl 16) or (v shl 8) or v
-    }
-    Bitmap.createBitmap(px, size, size, Bitmap.Config.ARGB_8888).asImageBitmap()
-}
-
 /**
- * Screen texture drawn over everything: fine grain, faint scanlines and a dark vignette.
+ * Screen texture drawn over everything: faint scanlines and a dark vignette.
  * Purely visual; touches pass through.
  */
 fun Modifier.scanlines(enabled: Boolean): Modifier = if (!enabled) this else drawWithCache {
-    val grainBrush = ShaderBrush(ImageShader(grain, TileMode.Repeated, TileMode.Repeated))
     val vignette = Brush.radialGradient(
         0.55f to Color.Transparent,
         1f to Color(0x8C000000),
@@ -192,7 +177,6 @@ fun Modifier.scanlines(enabled: Boolean): Modifier = if (!enabled) this else dra
     val line = Color(0x0F000000)
     onDrawWithContent {
         drawContent()
-        drawRect(grainBrush, alpha = 0.55f)
         var y = 0f
         while (y < size.height) {
             drawLine(line, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)

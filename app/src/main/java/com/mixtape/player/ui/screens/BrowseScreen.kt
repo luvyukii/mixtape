@@ -25,11 +25,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Computer
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Smartphone
@@ -58,7 +59,7 @@ import com.mixtape.player.data.DownloadUnpacker
 import com.mixtape.player.data.ImportManager
 import com.mixtape.player.data.PlaylistSource
 import com.mixtape.player.ui.theme.Tac
-import com.mixtape.player.ui.components.TacTabsRow
+import com.mixtape.player.ui.components.Glyphs
 import com.mixtape.player.ui.components.PixelReveal
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -131,7 +132,6 @@ private const val DESKTOP_WIDTH = 1100
 fun BrowseScreen(
     state: BrowseState,
     onMessage: (String) -> Unit,
-    onSaveToWishlist: (title: String, artist: String, url: String, source: PlaylistSource) -> Unit,
 ) {
     val site = BrowseSite.entries[state.site]
     val desktop = state.isDesktop(site)
@@ -139,12 +139,7 @@ fun BrowseScreen(
     BackHandler(enabled = state.canGoBack) { state.views[site]?.goBack() }
 
     Column(Modifier.fillMaxSize()) {
-        TacTabsRow(
-            labels = BrowseSite.entries.map { it.label },
-            selected = state.site,
-            onSelect = { state.site = it },
-        )
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Tac.GreenFaint))
+        SiteTabs(state.site) { state.site = it }
 
         if (site == BrowseSite.Web) {
             AddressBar(
@@ -182,12 +177,6 @@ fun BrowseScreen(
                     tint = Tac.GreenMid,
                 )
             }
-            IconButton(onClick = {
-                val view = state.views[site] ?: return@IconButton
-                val parsed = parsePageTitle(site, view.title.orEmpty())
-                if (parsed == null) onMessage("Open a song's page first, then tap save.")
-                else onSaveToWishlist(parsed.first, parsed.second, view.url.orEmpty(), site.source)
-            }) { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, "Save this song to your Wishlist", tint = Tac.GreenMid) }
             IconButton(onClick = { state.views[site]?.reload() }) { Icon(Icons.Rounded.Refresh, "Reload", tint = Tac.GreenMid) }
         }
 
@@ -430,24 +419,62 @@ private fun AddressBar(url: String, onGo: (String) -> Unit) {
     }
 }
 
-/** Pulls song title and artist out of the page title, or null if this isn't a song page. */
-fun parsePageTitle(site: BrowseSite, pageTitle: String): Pair<String, String>? {
-    val t = pageTitle.trim()
-    return when (site) {
-        BrowseSite.SoundCloud -> // "Stream Song by Artist | Listen online for free on SoundCloud"
-            Regex("""^(?:Stream )?(.+?) by (.+?) \|.*SoundCloud""").find(t)?.let { it.groupValues[1] to it.groupValues[2] }
-        BrowseSite.Bandcamp -> // "Song | Artist" (track pages) or "Album | Artist"
-            t.split(" | ").takeIf { it.size == 2 && "bandcamp" !in t.lowercase() }?.let { it[0].trim() to it[1].trim() }
-        BrowseSite.Spotify -> // "Song - song and lyrics by Artist | Spotify"
-            Regex("""^(.+?) - song(?: and lyrics)? by (.+?) \| Spotify""").find(t)?.let { it.groupValues[1] to it.groupValues[2] }
-        BrowseSite.Web -> t.split(" - ", " | ", limit = 2).takeIf { it.size == 2 && t.length < 120 }
-            ?.let { it[1].trim() to it[0].trim() }
-        BrowseSite.YouTube -> { // "Artist - Song (Official Video) - YouTube"
-            if (!t.endsWith(" - YouTube") || t == "YouTube") null else {
-                val video = t.removeSuffix(" - YouTube")
-                val parts = video.split(" - ", " – ", " — ", limit = 2)
-                if (parts.size == 2) parts[1].trim() to parts[0].trim() else video to ""
+/**
+ * Site tabs: the four music sites share the row in equal cells; WEB sits in its own
+ * cell at the end, set off by a divider and a globe glyph.
+ */
+@Composable
+private fun SiteTabs(selected: Int, onSelect: (Int) -> Unit) {
+    val sites = BrowseSite.entries
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(42.dp)
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            sites.forEachIndexed { i, s ->
+                val active = i == selected
+                val isWeb = s == BrowseSite.Web
+                if (isWeb) {
+                    Box(
+                        Modifier
+                            .padding(horizontal = 4.dp)
+                            .width(1.dp)
+                            .height(18.dp)
+                            .background(Tac.GreenDim)
+                    )
+                }
+                Box(
+                    (if (isWeb) Modifier.width(66.dp) else Modifier.weight(1f))
+                        .fillMaxHeight()
+                        .clickable { onSelect(i) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isWeb) {
+                            Icon(Glyphs.Web, null, tint = if (active) Tac.Green else Tac.GreenDim, modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(5.dp))
+                        }
+                        Text(
+                            s.label.uppercase(),
+                            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.5.sp),
+                            color = if (active) Tac.Green else Tac.GreenDim,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    }
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .width(if (active) 24.dp else 0.dp)
+                            .height(1.dp)
+                            .background(Tac.Bright)
+                    )
+                }
             }
         }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Tac.GreenFaint))
     }
 }

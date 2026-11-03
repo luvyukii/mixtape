@@ -40,7 +40,6 @@ import com.mixtape.player.ui.theme.MixtapeTheme
 class MainActivity : ComponentActivity() {
 
     private val vm: MainViewModel by viewModels()
-    private val youTubeAuth = YouTubeAuth(this)
     private var controller: ListenableFuture<MediaController>? = null
 
     private val permissionLauncher =
@@ -71,11 +70,6 @@ class MainActivity : ComponentActivity() {
             vm.onWritePermissionResult(result.resultCode == RESULT_OK)
         }
 
-    private val pickLikesFile =
-        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            uri?.let(vm::importLikesFile)
-        }
-
     private val pickFolder =
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             uri?.let(vm::importFolder)
@@ -84,8 +78,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        handleSignInRedirect(intent)
-
         val granted = hasAudioPermission()
         vm.onPermissionResult(granted)
         if (!granted && savedInstanceState == null) askForPermissions()
@@ -95,9 +87,7 @@ class MainActivity : ComponentActivity() {
             pickFiles = { pickFiles.launch(arrayOf("audio/*")) },
             pickFolder = { pickFolder.launch(null) },
             requestPermission = ::askForPermissions,
-            importYouTube = { vm.importYouTubeLikes { youTubeAuth.accessToken() } },
             deleteSongs = ::deleteSongs,
-            pickLikesFile = { pickLikesFile.launch(arrayOf("*/*")) },
         )
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -124,11 +114,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        handleSignInRedirect(intent)
-    }
-
     override fun onStart() {
         super.onStart()
         // Connecting a controller starts the playback service, which shows the
@@ -142,14 +127,6 @@ class MainActivity : ComponentActivity() {
         controller?.let(MediaController::releaseFuture)
         controller = null
         super.onStop()
-    }
-
-    private fun handleSignInRedirect(intent: Intent?) {
-        val data = intent?.data ?: return
-        if (data.scheme == "mixtape") {
-            vm.handleSignInRedirect(data)
-            intent.data = null // don't handle it again after rotation
-        }
     }
 
     private fun audioPermission() =

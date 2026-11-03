@@ -1,14 +1,7 @@
 package com.mixtape.player.ui.screens
 
-import com.mixtape.player.ui.components.TacButton
-import com.mixtape.player.ui.components.TacPanel
-import com.mixtape.player.ui.components.TacSwitch
-import com.mixtape.player.ui.theme.Tac
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import com.mixtape.player.ui.components.TacOutlinedButton
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,57 +9,36 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.mixtape.player.data.AccountsState
 import com.mixtape.player.data.Library
-import com.mixtape.player.integrations.SoundCloudClient
-import com.mixtape.player.integrations.SpotifyClient
+import com.mixtape.player.ui.components.Glyph
+import com.mixtape.player.ui.components.Glyphs
+import com.mixtape.player.ui.components.TacOutlinedButton
+import com.mixtape.player.ui.components.TacPanel
+import com.mixtape.player.ui.components.TacSwitch
+import com.mixtape.player.ui.theme.Tac
 
 class SettingsActions(
     val onBoostDb: (Int) -> Unit,
     val onHiRes: (Boolean) -> Unit,
-    val onImportFile: () -> Unit,
-    val onPasteList: (name: String, text: String) -> Unit,
     val onUnhideAll: () -> Unit,
     val onCrossfadeSeconds: (Int) -> Unit,
     val onSmartShuffle: (Boolean) -> Unit,
-    val onTintArt: (Boolean) -> Unit,
     val onBootAnim: (Boolean) -> Unit,
     val onScanlines: (Boolean) -> Unit,
     val onAddFiles: () -> Unit,
     val onAddFolder: () -> Unit,
     val onRescan: () -> Unit,
-    val onSpotifyClientId: (String) -> Unit,
-    val onSpotifyConnect: () -> Unit,
-    val onSpotifyDisconnect: () -> Unit,
-    val onSpotifyImport: () -> Unit,
-    val onYouTubeMusicOnly: (Boolean) -> Unit,
-    val onYouTubeImport: () -> Unit,
-    val onSoundCloudClientId: (String) -> Unit,
-    val onSoundCloudSecret: (String) -> Unit,
-    val onSoundCloudConnect: () -> Unit,
-    val onSoundCloudDisconnect: () -> Unit,
-    val onSoundCloudImport: () -> Unit,
 )
 
 @Composable
@@ -74,9 +46,7 @@ fun SettingsScreen(
     library: Library,
     crossfadeMs: Int,
     smartShuffle: Boolean,
-    tintArt: Boolean,
     scanlines: Boolean,
-    accounts: AccountsState,
     hiddenCount: Int,
     busy: Boolean,
     boostDb: Int,
@@ -84,157 +54,70 @@ fun SettingsScreen(
     bootAnim: Boolean,
     actions: SettingsActions,
 ) {
-    var pasting by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-    Column(
-        Modifier
-            .widthIn(max = 680.dp)
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(30.dp),
-    ) {
-        Section("Playback") {
-            CrossfadeControl(crossfadeMs, actions.onCrossfadeSeconds)
-            BoostControl(boostDb, actions.onBoostDb)
-            Hint("Boost raises quiet tracks through a limiter, so loud parts don't distort. Go easy on headphones.")
-            SwitchRow(
-                "Hi-res output",
-                "Play 24-bit files at full resolution instead of 16-bit. The visualizer pauses on those files. Applies after restarting NEXUS.",
-                hiRes,
-                actions.onHiRes,
-            )
-            SwitchRow(
-                "Smart shuffle",
-                "Avoid playing the same artist twice in a row",
-                smartShuffle,
-                actions.onSmartShuffle,
-            )
-        }
-
-        Section("Display") {
-            SwitchRow("Green cover art", "Show album covers in phosphor green", tintArt, actions.onTintArt)
-            SwitchRow("Startup animation", "Boot sequence when NEXUS opens (tap to skip it)", bootAnim, actions.onBootAnim)
-            SwitchRow("Screen texture", "Fine grain, faint scanlines and a dark vignette", scanlines, actions.onScanlines)
-        }
-
-        Section("Library") {
-            Text(
-                "${library.songs.size} songs · ${library.albums.size} albums · ${library.artists.size} artists",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Hint("Music anywhere on your phone is found and sorted automatically. Adding files copies them into Music/Nexus.")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TacOutlinedButton(onClick = actions.onAddFiles) { Text("Add files") }
-                TacOutlinedButton(onClick = actions.onAddFolder) { Text("Add a folder") }
+        Column(
+            Modifier
+                .widthIn(max = 680.dp)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(30.dp),
+        ) {
+            Section("Playback", Glyphs.Wave) {
+                CrossfadeControl(crossfadeMs, actions.onCrossfadeSeconds)
+                BoostControl(boostDb, actions.onBoostDb)
+                Hint("Boost raises quiet tracks through a limiter, so loud parts don't distort. Go easy on headphones.")
+                SwitchRow(
+                    "Hi-res output",
+                    "Play 24-bit files at full resolution instead of 16-bit. The visualizer pauses on those files. Applies after restarting NEXUS.",
+                    hiRes,
+                    actions.onHiRes,
+                )
+                SwitchRow("Smart shuffle", "Avoid playing the same artist twice in a row", smartShuffle, actions.onSmartShuffle)
             }
-            TacOutlinedButton(onClick = actions.onRescan) { Text("Rescan library") }
-            if (hiddenCount > 0) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        if (hiddenCount == 1) "1 hidden song" else "$hiddenCount hidden songs",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(onClick = actions.onUnhideAll) { Text("Show all again") }
+
+            Section("Display", Glyphs.Screen) {
+                SwitchRow("Startup animation", "Boot sequence when NEXUS opens (tap to skip it)", bootAnim, actions.onBootAnim)
+                SwitchRow("CRT scanlines", "Faint lines across the screen and a dark vignette", scanlines, actions.onScanlines)
+            }
+
+            Section("Library", Glyphs.Disc) {
+                Text(
+                    "${library.songs.size} songs · ${library.albums.size} albums · ${library.artists.size} artists",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Tac.Green,
+                )
+                Hint("Music anywhere on your phone is found and sorted automatically. Adding files copies them into Music/Nexus.")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TacOutlinedButton(onClick = actions.onAddFiles, enabled = !busy) { Text("ADD FILES") }
+                    TacOutlinedButton(onClick = actions.onAddFolder, enabled = !busy) { Text("ADD FOLDER") }
+                }
+                TacOutlinedButton(onClick = actions.onRescan) { Text("RESCAN") }
+                if (hiddenCount > 0) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (hiddenCount == 1) "1 hidden song" else "$hiddenCount hidden songs",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Tac.GreenMid,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = actions.onUnhideAll) { Text("SHOW ALL", color = Tac.Green) }
+                    }
                 }
             }
+            Spacer(Modifier.height(24.dp))
         }
-
-        Section("Import likes for free") {
-            Hint("No developer account or subscription needed. Import a file you've exported, or paste a list. Songs you already have are matched automatically.")
-            Hint("• Spotify: spotify.com → Account → Privacy settings → Download your data → \"Account data\". You'll get an email with a .zip in a few days; import the zip here.")
-            Hint("• YouTube Music: takeout.google.com → select only \"YouTube and YouTube Music\" → import \"music library songs.csv\".")
-            Hint("• Any service: export a CSV with a free tool like Exportify or TuneMyMusic, or paste lines like \"Artist - Title\".")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TacButton(onClick = actions.onImportFile, enabled = !busy) { Text("Import a file") }
-                TacOutlinedButton(onClick = { pasting = true }) { Text("Paste a list") }
-            }
-        }
-
-        Section("Spotify") {
-            Hint("Imports your Liked Songs as a playlist matched to music on your phone. Spotify songs themselves can't be downloaded.")
-            CredentialField("Client ID", accounts.spotifyClientId, actions.onSpotifyClientId)
-            Hint("Redirect URI to register: ${SpotifyClient.REDIRECT_URI}", mono = true)
-            ConnectRow(
-                connected = accounts.spotifyConnected,
-                canConnect = accounts.spotifyClientId.isNotBlank(),
-                busy = busy,
-                onConnect = actions.onSpotifyConnect,
-                onDisconnect = actions.onSpotifyDisconnect,
-                onImport = actions.onSpotifyImport,
-            )
-        }
-
-        Section("YouTube") {
-            Hint("Imports videos you've liked and matches them to your files. Needs a one-time Google Cloud setup (see README).")
-            SwitchRow("Music videos only", "Skip liked videos that aren't music", accounts.youTubeMusicOnly, actions.onYouTubeMusicOnly)
-            TacButton(onClick = actions.onYouTubeImport, enabled = !busy) { Text("Sign in & import likes") }
-        }
-
-        Section("SoundCloud") {
-            Hint("Imports your likes. Tracks whose artist allows downloads can be saved to your phone from the playlist.")
-            CredentialField("Client ID", accounts.soundCloudClientId, actions.onSoundCloudClientId)
-            CredentialField("Client secret", accounts.soundCloudClientSecret, actions.onSoundCloudSecret, secret = true)
-            Hint("Redirect URI to register: ${SoundCloudClient.REDIRECT_URI}", mono = true)
-            ConnectRow(
-                connected = accounts.soundCloudConnected,
-                canConnect = accounts.soundCloudClientId.isNotBlank() && accounts.soundCloudClientSecret.isNotBlank(),
-                busy = busy,
-                onConnect = actions.onSoundCloudConnect,
-                onDisconnect = actions.onSoundCloudDisconnect,
-                onImport = actions.onSoundCloudImport,
-            )
-        }
-        Spacer(Modifier.height(24.dp))
-    }
-    }
-
-    if (pasting) {
-        PasteListDialog(
-            onDismiss = { pasting = false },
-            onImport = { name, text -> pasting = false; actions.onPasteList(name, text) },
-        )
     }
 }
 
 @Composable
-private fun PasteListDialog(onDismiss: () -> Unit, onImport: (String, String) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var text by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Paste a song list") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Playlist name") }, singleLine = true)
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    label = { Text("One per line: Artist - Title") },
-                    minLines = 6,
-                    maxLines = 12,
-                )
-            }
-        },
-        confirmButton = { TextButton(onClick = { onImport(name, text) }, enabled = text.isNotBlank()) { Text("Import") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
+private fun Section(title: String, glyph: Glyph, content: @Composable () -> Unit) {
+    TacPanel(title, glyph = glyph) { content() }
 }
 
 @Composable
-private fun Section(title: String, content: @Composable () -> Unit) {
-    TacPanel(title) { content() }
-}
-
-@Composable
-private fun Hint(text: String, mono: Boolean = false) {
-    Text(
-        text,
-        style = MaterialTheme.typography.bodySmall,
-        fontFamily = if (mono) FontFamily.Monospace else null,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+private fun Hint(text: String) {
+    Text(text, style = MaterialTheme.typography.bodySmall, color = Tac.GreenMid)
 }
 
 @Composable
@@ -246,37 +129,5 @@ private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChang
         }
         Spacer(Modifier.width(16.dp))
         TacSwitch(checked = checked, onCheckedChange = onChange)
-    }
-}
-
-@Composable
-private fun CredentialField(label: String, value: String, onChange: (String) -> Unit, secret: Boolean = false) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        singleLine = true,
-        visualTransformation = if (secret) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        modifier = Modifier.fillMaxWidth(),
-    )
-}
-
-@Composable
-private fun ConnectRow(
-    connected: Boolean,
-    canConnect: Boolean,
-    busy: Boolean,
-    onConnect: () -> Unit,
-    onDisconnect: () -> Unit,
-    onImport: () -> Unit,
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (connected) {
-            TacButton(onClick = onImport, enabled = !busy) { Text("Import likes") }
-            TacOutlinedButton(onClick = onDisconnect) { Text("Disconnect") }
-        } else {
-            TacButton(onClick = onConnect, enabled = canConnect && !busy) { Text("Connect") }
-        }
     }
 }

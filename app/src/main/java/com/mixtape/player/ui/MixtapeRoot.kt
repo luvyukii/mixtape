@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.CompositionLocalProvider
 import com.mixtape.player.ui.components.TacHeader
+import com.mixtape.player.ui.components.Glyphs
 import com.mixtape.player.ui.components.pixelCover
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -116,9 +117,7 @@ class PlatformActions(
     val pickFiles: () -> Unit,
     val pickFolder: () -> Unit,
     val requestPermission: () -> Unit,
-    val importYouTube: () -> Unit,
     val deleteSongs: (List<Song>) -> Unit,
-    val pickLikesFile: () -> Unit,
 )
 
 @Composable
@@ -135,10 +134,8 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
     val playback by vm.playback.collectAsStateWithLifecycle()
     val crossfadeMs by vm.crossfadeMs.collectAsStateWithLifecycle()
     val smartShuffle by vm.smartShuffle.collectAsStateWithLifecycle()
-    val accounts by vm.accounts.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val hiddenIds by vm.hiddenIds.collectAsStateWithLifecycle()
-    val tintArt by vm.tintArt.collectAsStateWithLifecycle()
     val scanlines by vm.scanlines.collectAsStateWithLifecycle()
 
     var tab by rememberSaveable { mutableStateOf(Tab.Library) }
@@ -224,14 +221,14 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
     }
     val navTabs = remember {
         listOf(
-            TacTab(Tab.Library.label, Icons.Rounded.LibraryMusic),
-            TacTab(Tab.Playlists.label, Icons.AutoMirrored.Rounded.QueueMusic),
-            TacTab(Tab.Browse.label, Icons.Rounded.Explore),
-            TacTab(Tab.Settings.label, Icons.Rounded.Settings),
+            TacTab(Tab.Library.label, Glyphs.Library),
+            TacTab(Tab.Playlists.label, Glyphs.Lists),
+            TacTab(Tab.Browse.label, Glyphs.Browse),
+            TacTab(Tab.Settings.label, Glyphs.Config),
         )
     }
 
-    CompositionLocalProvider(LocalTacOptions provides TacOptions(tintArt = tintArt, scanlines = scanlines)) {
+    CompositionLocalProvider(LocalTacOptions provides TacOptions(scanlines = scanlines)) {
     Box(
         Modifier
             .fillMaxSize()
@@ -301,36 +298,21 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                             Tab.Browse -> BrowseScreen(
                                 state = browse,
                                 onMessage = vm::showMessage,
-                                onSaveToWishlist = vm::saveToWishlist,
                             )
                             Tab.Settings -> SettingsScreen(
-                                library, crossfadeMs, smartShuffle, tintArt, scanlines, accounts, hiddenIds.size, busy != null,
+                                library, crossfadeMs, smartShuffle, scanlines, hiddenIds.size, busy != null,
                                 boostDb, hiRes, bootAnim,
                                 SettingsActions(
                                     onBoostDb = vm::setBoostDb,
                                     onHiRes = vm::setHiRes,
-                                    onImportFile = platform.pickLikesFile,
-                                    onPasteList = vm::importPastedList,
                                     onUnhideAll = vm::unhideAll,
                                     onCrossfadeSeconds = vm::setCrossfadeSeconds,
                                     onSmartShuffle = vm::setSmartShuffle,
-                                    onTintArt = vm::setTintArt,
                                     onBootAnim = vm::setBootAnim,
                                     onScanlines = vm::setScanlines,
                                     onAddFiles = platform.pickFiles,
                                     onAddFolder = platform.pickFolder,
                                     onRescan = vm::rescan,
-                                    onSpotifyClientId = vm::setSpotifyClientId,
-                                    onSpotifyConnect = { vm.spotifySignInUrl()?.let { platform.openUrl(it.toString()) } },
-                                    onSpotifyDisconnect = vm::disconnectSpotify,
-                                    onSpotifyImport = vm::importSpotifyLikes,
-                                    onYouTubeMusicOnly = vm::setYouTubeMusicOnly,
-                                    onYouTubeImport = platform.importYouTube,
-                                    onSoundCloudClientId = vm::setSoundCloudClientId,
-                                    onSoundCloudSecret = vm::setSoundCloudClientSecret,
-                                    onSoundCloudConnect = { vm.soundCloudSignInUrl()?.let { platform.openUrl(it.toString()) } },
-                                    onSoundCloudDisconnect = vm::disconnectSoundCloud,
-                                    onSoundCloudImport = vm::importSoundCloudLikes,
                                 ),
                             )
                         }
@@ -377,7 +359,6 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                                 onDelete = { back(); vm.deletePlaylist(p.id) },
                                 onRemove = { vm.removeFromPlaylist(p.id, it) },
                                 onOpenUrl = platform.openUrl,
-                                onDownload = vm::downloadFromSoundCloud,
                             )
                         } ?: Gone(back)
                     }

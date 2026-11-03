@@ -68,7 +68,7 @@ fun BootScreen(trackCount: Int, onDone: () -> Unit) {
         if (finishing) return
         finishing = true
         scope.launch {
-            erase.animateTo(1f, tween(420, easing = LinearEasing))
+            erase.animateTo(1f, tween(560, easing = LinearEasing))
             done()
         }
     }
@@ -80,13 +80,13 @@ fun BootScreen(trackCount: Int, onDone: () -> Unit) {
             val len = lines[i].length + 8
             typed = 0
             while (typed < len) {
-                typed += 3
-                delay(12)
+                typed += 2
+                delay(13)
             }
-            delay(50)
+            delay(90)
         }
-        logo.animateTo(1f, tween(420, easing = LinearEasing))
-        delay(260)
+        logo.animateTo(1f, tween(560, easing = LinearEasing))
+        delay(420)
         finish()
     }
 

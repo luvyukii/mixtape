@@ -10,7 +10,6 @@ import com.mixtape.player.data.PlaylistSource
 import com.mixtape.player.data.Song
 import com.mixtape.player.data.SongEdit
 import com.mixtape.player.data.TagWriter
-import com.mixtape.player.data.TrackListParser
 import com.mixtape.player.data.UnsupportedFormatException
 import android.app.RecoverableSecurityException
 import android.content.IntentSender
@@ -21,8 +20,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import com.mixtape.player.data.TrackMatcher
-import com.mixtape.player.integrations.ExternalTrack
-import com.mixtape.player.integrations.HttpError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,7 +42,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val scanning = app.library.scanning
     val playlists = app.playlists.playlists
     val playback = engine.state
-    val accounts = settings.accounts
     val crossfadeMs = settings.crossfadeMs
     val smartShuffle = settings.smartShuffle
     val boostDb = settings.boostDb
@@ -58,9 +54,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun moveInQueue(from: Int, to: Int) = engine.moveInQueue(from, to)
     val bootAnim = settings.bootAnim
     fun setBootAnim(on: Boolean) = settings.setBootAnim(on)
-    val tintArt = settings.tintArt
     val scanlines = settings.scanlines
-    fun setTintArt(on: Boolean) = settings.setTintArt(on)
     fun setScanlines(on: Boolean) = settings.setScanlines(on)
 
     private val _hasPermission = MutableStateFlow(false)
@@ -291,152 +285,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun deletePlaylist(id: String) = app.playlists.delete(id)
     fun removeFromPlaylist(id: String, position: Int) = app.playlists.removeAt(id, position)
 
-    // ---- streaming services ----------------------------------------------------------------
-
-    fun setSpotifyClientId(v: String) = settings.setSpotifyClientId(v)
-    fun setSoundCloudClientId(v: String) = settings.setSoundCloudClientId(v)
-    fun setSoundCloudClientSecret(v: String) = settings.setSoundCloudClientSecret(v)
-    fun setYouTubeMusicOnly(v: Boolean) = settings.setYouTubeMusicOnly(v)
-
-    /** Returns the sign-in page to open, or null (with a message) if setup is missing. */
-    fun spotifySignInUrl(): Uri? = try {
-        app.spotify.authorizeUrl()
-    } catch (e: Exception) {
-        say(e.message ?: "Couldn't start Spotify sign-in"); null
-    }
-
-    fun soundCloudSignInUrl(): Uri? = try {
-        app.soundCloud.authorizeUrl()
-    } catch (e: Exception) {
-        say(e.message ?: "Couldn't start SoundCloud sign-in"); null
-    }
-
-    fun disconnectSpotify() = app.spotify.signOut()
-    fun disconnectSoundCloud() = app.soundCloud.signOut()
-
-    fun handleSignInRedirect(uri: Uri) = when (uri.host) {
-        "spotify-callback" -> runTask("Connecting Spotify…") {
-            app.spotify.completeSignIn(uri)
-            say("Spotify connected")
-        }
-        "soundcloud-callback" -> runTask("Connecting SoundCloud…") {
-            app.soundCloud.completeSignIn(uri)
-            say("SoundCloud connected")
-        }
-        else -> Unit
-    }
-
-    fun importSpotifyLikes() = runTask("Importing Spotify likes…") {
-        val tracks = app.spotify.likedTracks { n -> _busy.value = "Importing Spotify likes… $n" }
-        saveImport(PlaylistSource.SPOTIFY, "Spotify likes", tracks)
-    }
-
-    fun importYouTubeLikes(token: suspend () -> String) = runTask("Signing in to Google…") {
-        val accessToken = token()
-        _busy.value = "Importing YouTube likes…"
-        val tracks = try {
-            app.youTube.likedVideos(accessToken, accounts.value.youTubeMusicOnly) { n ->
-                _busy.value = "Importing YouTube likes… $n"
-            }
-        } catch (e: HttpError) {
-            throw java.io.IOException(
-                when {
-                    "accessNotConfigured" in e.body || "SERVICE_DISABLED" in e.body ->
-                        "YouTube Data API v3 isn't turned on in your Google Cloud project. Enable it, wait a minute, and try again."
-                    e.code == 401 || e.code == 403 ->
-                        "Google refused access (HTTP ${e.code}). Make sure your account is added as a test user on the OAuth consent screen."
-                    else -> "YouTube request failed (HTTP ${e.code})."
-                },
-                e,
-            )
-        }
-        saveImport(PlaylistSource.YOUTUBE, "YouTube likes", tracks)
-    }
-
-    fun importSoundCloudLikes() = runTask("Importing SoundCloud likes…") {
-        val tracks = app.soundCloud.likedTracks { n -> _busy.value = "Importing SoundCloud likes… $n" }
-        saveImport(PlaylistSource.SOUNDCLOUD, "SoundCloud likes", tracks)
-        val downloadable = tracks.count { it.downloadable }
-        if (downloadable > 0) say("$downloadable of your SoundCloud likes can be downloaded — open the playlist to save them")
-    }
-
-    fun downloadFromSoundCloud(entries: List<PlaylistEntry>) = runTask("Downloading…") {
-        val wanted = entries.filter { it.downloadable }
-        var ok = 0
-        var failed = 0
-        wanted.forEachIndexed { i, entry ->
-            _busy.value = "Downloading ${i + 1} of ${wanted.size}: ${entry.title}"
-            try {
-                app.soundCloud.download(entry, app.importer)
-                ok++
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                failed++
-                if (wanted.size == 1) throw e
-            }
-        }
-        app.library.refresh()
-        say(
-            when {
-                failed == 0 -> "Downloaded $ok track(s) to Music/Nexus/SoundCloud"
-                ok == 0 -> "Couldn't download those tracks"
-                else -> "Downloaded $ok, $failed failed"
-            }
-        )
-    }
-
-    /** Imports a song list from an exported file (Spotify data export, CSV, text). */
-    fun importLikesFile(uri: Uri) = runTask("Reading file…") {
-        val resolver = app.contentResolver
-        val name = resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
-            ?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: "Imported list"
-        val bytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            resolver.openInputStream(uri)?.use { it.readBytes() }
-        } ?: throw java.io.IOException("Couldn't open that file")
-        val parsed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-            TrackListParser.parseFile(name, bytes)
-        }
-        saveParsed(parsed)
-    }
-
-    /** Remembers a song found while browsing, so you can find or buy it later. */
-    fun saveToWishlist(title: String, artist: String, url: String, source: PlaylistSource) {
-        app.playlists.appendTo(
-            "wishlist", "Wishlist", PlaylistSource.LIST,
-            PlaylistEntry(title = title, artist = artist, externalUrl = url.ifBlank { null }),
-        )
-        say("Saved “$title” to your Wishlist in Playlists")
-    }
-
-    /** Imports a pasted list, one "Artist - Title" per line. */
-    fun importPastedList(name: String, text: String) {
-        val entries = TrackListParser.parseLines(text)
-        if (entries.isEmpty()) {
-            say("That list is empty")
-            return
-        }
-        saveParsed(TrackListParser.Result(name.ifBlank { "Pasted list" }, PlaylistSource.LIST, entries))
-    }
-
-    private fun saveParsed(parsed: TrackListParser.Result) {
-        if (parsed.source == PlaylistSource.SPOTIFY) {
-            app.playlists.upsertImported(PlaylistSource.SPOTIFY, parsed.name, parsed.entries)
-        } else {
-            app.playlists.createImported(parsed.name, parsed.source, parsed.entries)
-        }
-        val index = TrackMatcher.Index(library.value.songs)
-        val onDevice = parsed.entries.count { index.find(it.title, it.artist, it.durationMs) != null }
-        say("Imported “${parsed.name}”: ${parsed.entries.size} songs, $onDevice already on your phone. It's in Playlists.")
-    }
-
-    private fun saveImport(source: PlaylistSource, name: String, tracks: List<ExternalTrack>) {
-        app.playlists.upsertImported(source, name, tracks.map { it.toEntry() })
-        val index = TrackMatcher.Index(library.value.songs)
-        val onDevice = tracks.count { index.find(it.title, it.artist, it.durationMs) != null }
-        say("Imported ${tracks.size} ${source.label} likes — $onDevice already on your phone")
-    }
-
     // ---- helpers ------------------------------------------------------------------------------
 
     private fun runTask(label: String, block: suspend () -> Unit) {
@@ -450,15 +298,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 block()
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: HttpError) {
-                say(
-                    when (e.code) {
-                        401 -> "Your sign-in expired. Disconnect and connect again."
-                        403 -> "Access denied. Check your developer app settings (see README)."
-                        429 -> "Too many requests. Try again in a minute."
-                        else -> "Request failed (HTTP ${e.code})"
-                    }
-                )
             } catch (e: Exception) {
                 say(e.message ?: "Something went wrong")
             } finally {

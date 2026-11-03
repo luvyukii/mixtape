@@ -64,6 +64,13 @@ import com.mixtape.player.ui.components.SongRow
 import com.mixtape.player.ui.components.TacSearchField
 import com.mixtape.player.ui.components.TacTabsRow
 import com.mixtape.player.ui.components.PixelReveal
+import com.mixtape.player.ui.components.EmptyArt
+import com.mixtape.player.ui.components.LibraryHud
+import com.mixtape.player.ui.components.cornerBrackets
+import com.mixtape.player.ui.components.entrance
+import com.mixtape.player.ui.components.rememberEntrance
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
+import androidx.compose.ui.unit.sp
 import com.mixtape.player.ui.theme.Tac
 import androidx.compose.runtime.SideEffect
 
@@ -98,6 +105,7 @@ fun LibraryScreen(
             library.songs.isEmpty() && !scanning -> EmptyLibrary(onAddFiles, onRescan)
             query.isNotBlank() -> SearchResults(library, query.trim(), currentSongId, actions, onOpen, onPlay)
             else -> {
+                LibraryHud(library)
                 TacTabsRow(
                     labels = LibraryTab.entries.map { it.label },
                     selected = tab,
@@ -137,6 +145,7 @@ private fun SongsTab(
         }
     }
     SideEffect { actions.selection.pool = sorted }
+    val enter = rememberEntrance(sort)
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Row(
@@ -178,13 +187,18 @@ private fun SongsTab(
             }
         }
         itemsIndexed(sorted, key = { _, s -> s.id }) { i, song ->
-            SongRow(song, song.id == currentSongId, actions, onClick = { onPlay(sorted, i) })
+            SongRow(
+                song, song.id == currentSongId, actions,
+                onClick = { onPlay(sorted, i) },
+                modifier = Modifier.entrance(enter, i),
+            )
         }
     }
 }
 
 @Composable
 private fun AlbumsGrid(albums: List<Album>, onClick: (Album) -> Unit) {
+    val enter = rememberEntrance(Unit)
     LazyVerticalGrid(
         columns = GridCells.Adaptive(150.dp),
         contentPadding = PaddingValues(16.dp),
@@ -192,16 +206,28 @@ private fun AlbumsGrid(albums: List<Album>, onClick: (Album) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        items(albums, key = { it.id }) { album ->
-            Column(Modifier.clickable { onClick(album) }) {
-                AlbumArt(album.songs.firstOrNull(), Modifier.fillMaxWidth().aspectRatio(1f), sizePx = 400)
-                Text(
-                    album.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
+        gridItemsIndexed(albums, key = { _, a -> a.id }) { i, album ->
+            Column(Modifier.entrance(enter, i).clickable { onClick(album) }) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .cornerBrackets(length = 8.dp)
+                        .padding(4.dp)
+                ) {
+                    AlbumArt(album.songs.firstOrNull(), Modifier.fillMaxSize(), sizePx = 400, shape = MaterialTheme.shapes.extraSmall)
+                }
+                Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        album.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Tac.Green,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text("%03d".format(i + 1), style = MaterialTheme.typography.labelSmall, color = Tac.GreenDim)
+                }
                 Text(
                     album.artist,
                     style = MaterialTheme.typography.bodySmall,
@@ -221,10 +247,11 @@ private fun GroupList(
     folderIcon: Boolean = false,
     onClick: (SongGroup) -> Unit,
 ) {
+    val enter = rememberEntrance(Unit)
     LazyColumn(Modifier.fillMaxSize()) {
-        items(groups, key = { it.key }) { g ->
+        itemsIndexed(groups, key = { _, g -> g.key }) { i, g ->
             ListItem(
-                modifier = Modifier.clickable { onClick(g) },
+                modifier = Modifier.entrance(enter, i).clickable { onClick(g) },
                 headlineContent = { Text(g.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 supportingContent = { Text(g.subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 leadingContent = {
@@ -324,9 +351,9 @@ private fun EmptyLibrary(onAddFiles: () -> Unit, onRescan: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(Icons.Rounded.LibraryMusic, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.height(16.dp))
-        Text("No music found yet", style = MaterialTheme.typography.titleLarge)
+        EmptyArt(Modifier.fillMaxWidth().height(200.dp))
+        Spacer(Modifier.height(20.dp))
+        Text("NO SIGNAL", style = MaterialTheme.typography.titleLarge.copy(letterSpacing = 4.sp), color = Tac.Green)
         Spacer(Modifier.height(8.dp))
         Text(
             "Songs saved anywhere on your phone show up here automatically. You can also copy files in.",
@@ -334,8 +361,8 @@ private fun EmptyLibrary(onAddFiles: () -> Unit, onRescan: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(24.dp))
-        TacButton(onClick = onAddFiles) { Text("Add music files") }
+        TacButton(onClick = onAddFiles) { Text("ADD MUSIC FILES") }
         Spacer(Modifier.height(8.dp))
-        TacOutlinedButton(onClick = onRescan) { Text("Scan again") }
+        TacOutlinedButton(onClick = onRescan) { Text("SCAN AGAIN") }
     }
 }

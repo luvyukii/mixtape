@@ -51,7 +51,7 @@ fun PlaylistsScreen(
             if (playlists.isEmpty()) {
                 item {
                     Text(
-                        "No playlists yet. Make one here, or import your likes from Spotify, YouTube or SoundCloud in Settings.",
+                        "No playlists yet.",
                         modifier = Modifier.fillMaxWidth().padding(32.dp),
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

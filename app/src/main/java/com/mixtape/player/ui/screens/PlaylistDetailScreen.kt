@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -65,7 +64,6 @@ fun PlaylistDetailScreen(
     onDelete: () -> Unit,
     onRemove: (Int) -> Unit,
     onOpenUrl: (String) -> Unit,
-    onDownload: (List<PlaylistEntry>) -> Unit,
 ) {
     val resolved = remember(playlist, library, matcher) {
         playlist.entries.mapIndexed { i, e ->
@@ -74,9 +72,6 @@ fun PlaylistDetailScreen(
         }
     }
     val playable = remember(resolved) { resolved.mapNotNull { it.song } }
-    val missingDownloadable = remember(resolved) {
-        resolved.filter { it.song == null && it.entry.downloadable }.map { it.entry }
-    }
     val isLocal = playlist.source == PlaylistSource.LOCAL
     var menu by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
@@ -122,17 +117,6 @@ fun PlaylistDetailScreen(
                     Text("Shuffle")
                 }
             }
-            if (playlist.source == PlaylistSource.SOUNDCLOUD && missingDownloadable.isNotEmpty()) {
-                TacOutlinedButton(
-                    onClick = { onDownload(missingDownloadable) },
-                    enabled = !busy,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                ) {
-                    Icon(Icons.Rounded.Download, null, Modifier.size(18.dp))
-                    Spacer(Modifier.size(6.dp))
-                    Text("Download ${missingDownloadable.size} the artists allow")
-                }
-            }
             if (!isLocal && playable.size < playlist.entries.size) {
                 Text(
                     "Greyed-out tracks aren't on this phone yet. Add the files and they'll match automatically.",
@@ -152,7 +136,7 @@ fun PlaylistDetailScreen(
                     onRemove = { onRemove(r.position) },
                 )
             } else {
-                MissingRow(r.entry, playlist.source, busy, onOpenUrl, onDownload, onRemove = { onRemove(r.position) })
+                MissingRow(r.entry, playlist.source, onOpenUrl, onRemove = { onRemove(r.position) })
             }
         }
     }
@@ -175,9 +159,7 @@ fun PlaylistDetailScreen(
 private fun MissingRow(
     entry: PlaylistEntry,
     source: PlaylistSource,
-    busy: Boolean,
     onOpenUrl: (String) -> Unit,
-    onDownload: (List<PlaylistEntry>) -> Unit,
     onRemove: (() -> Unit)?,
 ) {
     ListItem(
@@ -186,11 +168,6 @@ private fun MissingRow(
         supportingContent = { Text(entry.artist.ifBlank { "Unknown artist" }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         trailingContent = {
             Row {
-                if (source == PlaylistSource.SOUNDCLOUD && entry.downloadable) {
-                    IconButton(onClick = { onDownload(listOf(entry)) }, enabled = !busy) {
-                        Icon(Icons.Rounded.Download, "Download ${entry.title}")
-                    }
-                }
                 entry.externalUrl?.let { url ->
                     IconButton(onClick = { onOpenUrl(url) }) {
                         Icon(Icons.AutoMirrored.Rounded.OpenInNew, "Open in ${source.label}")

@@ -113,8 +113,8 @@ private val TacShapes = Shapes(
     extraLarge = CutCornerShape(4.dp),
 )
 
-/** Settings that change how the theme draws (cover tint, grain). */
-data class TacOptions(val tintArt: Boolean = true, val scanlines: Boolean = true)
+/** Settings that change how the theme draws. */
+data class TacOptions(val scanlines: Boolean = true)
 
 val LocalTacOptions = staticCompositionLocalOf { TacOptions() }
 

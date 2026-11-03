@@ -6,9 +6,6 @@ import com.mixtape.player.data.LibraryRepository
 import com.mixtape.player.data.MetadataStore
 import com.mixtape.player.data.PlaylistStore
 import com.mixtape.player.data.Settings
-import com.mixtape.player.integrations.SoundCloudClient
-import com.mixtape.player.integrations.SpotifyClient
-import com.mixtape.player.integrations.YouTubeClient
 import com.mixtape.player.playback.CrossfadeEngine
 
 /** Holds the app-wide objects; playback outlives any single screen. */
@@ -24,12 +21,6 @@ class MixtapeApp : Application() {
         private set
     lateinit var importer: ImportManager
         private set
-    lateinit var spotify: SpotifyClient
-        private set
-    lateinit var soundCloud: SoundCloudClient
-        private set
-    lateinit var youTube: YouTubeClient
-        private set
     lateinit var metadata: MetadataStore
         private set
 
@@ -44,8 +35,5 @@ class MixtapeApp : Application() {
         engine = CrossfadeEngine(this, settings)
         playlists = PlaylistStore(this)
         importer = ImportManager(this)
-        spotify = SpotifyClient(settings)
-        soundCloud = SoundCloudClient(settings)
-        youTube = YouTubeClient()
     }
 }
