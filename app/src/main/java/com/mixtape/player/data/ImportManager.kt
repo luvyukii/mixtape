@@ -115,7 +115,7 @@ class ImportManager(context: Context) {
             mime?.startsWith("audio/") == true ||
                 name?.substringAfterLast('.', "")?.lowercase() in AUDIO_EXTENSIONS
 
-        /** MediaStore only accepts audio/* types in the audio collection. */
+        /** MediaStore only accepts audio MIME types in the audio collection. */
         fun audioMime(name: String, given: String?): String {
             if (given != null && given.startsWith("audio/")) return given
             val ext = name.substringAfterLast('.', "").lowercase()
