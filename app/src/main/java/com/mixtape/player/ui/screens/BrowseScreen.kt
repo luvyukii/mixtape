@@ -235,7 +235,7 @@ private fun createWebView(context: Context, site: BrowseSite, state: BrowseState
     }
 
     // Saves files the site itself offers to download (e.g. a SoundCloud track whose
-    // artist enabled downloads) into Music/Mixtape/Downloads.
+    // artist enabled downloads) into Music/Nexus/Downloads.
     web.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
         if (!url.startsWith("http")) {
             onMessage("This download can't be saved from here.")
@@ -259,9 +259,9 @@ private fun createWebView(context: Context, site: BrowseSite, state: BrowseState
             DownloadUnpacker.track(context, dm.enqueue(request), name.removeSuffix(".zip").removeSuffix(".ZIP"))
             onMessage("Downloading “$name”. The songs will appear in your library when it's done.")
         } else {
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, "Mixtape/Downloads/$name")
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, "Nexus/Downloads/$name")
             dm.enqueue(request)
-            onMessage("Downloading “$name” to Music/Mixtape/Downloads")
+            onMessage("Downloading “$name” to Music/Nexus/Downloads")
         }
     }
 

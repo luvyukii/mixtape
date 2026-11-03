@@ -21,7 +21,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.Shape
+import com.mixtape.player.ui.theme.LocalTacOptions
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -34,6 +37,18 @@ import java.util.Collections
 private val cache = object : LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 1024 / 8).toInt()) {
     override fun sizeOf(key: String, value: Bitmap) = value.byteCount / 1024
 }
+/** Turns a picture into green-on-black: brightness drives the green channel. */
+private val PhosphorFilter = ColorFilter.colorMatrix(
+    ColorMatrix(
+        floatArrayOf(
+            0.05f, 0.10f, 0.02f, 0f, 0f,
+            0.30f, 0.65f, 0.12f, 0f, 8f,
+            0.10f, 0.22f, 0.05f, 0f, 0f,
+            0f, 0f, 0f, 1f, 0f,
+        )
+    )
+)
+
 private val missing: MutableSet<String> = Collections.synchronizedSet(HashSet())
 
 /** Cover art read from the song file itself, cached per album. */
@@ -67,7 +82,13 @@ fun AlbumArt(
     ) {
         val bmp = bitmap
         if (bmp != null) {
-            Image(bmp.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            Image(
+                bmp.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                colorFilter = if (LocalTacOptions.current.tintArt) PhosphorFilter else null,
+                modifier = Modifier.fillMaxSize(),
+            )
         } else {
             Icon(
                 Icons.Rounded.MusicNote,

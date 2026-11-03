@@ -1,5 +1,7 @@
 package com.mixtape.player.ui.screens
 
+import com.mixtape.player.ui.components.TacButton
+import com.mixtape.player.ui.components.TacOutlinedButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,8 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -54,12 +54,12 @@ fun CollectionScreen(
                 Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Button(onClick = { onPlay(songs, 0) }, enabled = songs.isNotEmpty()) {
+                TacButton(onClick = { onPlay(songs, 0) }, enabled = songs.isNotEmpty()) {
                     Icon(Icons.Rounded.PlayArrow, null, Modifier.size(18.dp))
                     Spacer(Modifier.size(6.dp))
                     Text("Play")
                 }
-                FilledTonalButton(onClick = { onShuffle(songs) }, enabled = songs.isNotEmpty()) {
+                TacOutlinedButton(onClick = { onShuffle(songs) }, enabled = songs.isNotEmpty()) {
                     Icon(Icons.Rounded.Shuffle, null, Modifier.size(18.dp))
                     Spacer(Modifier.size(6.dp))
                     Text("Shuffle")

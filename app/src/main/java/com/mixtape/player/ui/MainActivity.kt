@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
             if (uris.isNotEmpty()) vm.importFiles(uris)
         }
 
-    /** Android's own "Allow Mixtape to delete this file?" confirmation. */
+    /** Android's own "Allow NEXUS to delete this file?" confirmation. */
     private val deleteConfirm =
         registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
             val songs = vm.pendingDelete

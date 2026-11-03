@@ -1,5 +1,8 @@
 package com.mixtape.player.ui.screens
 
+import com.mixtape.player.ui.components.TacButton
+import com.mixtape.player.ui.components.TacPanel
+import com.mixtape.player.ui.components.TacOutlinedButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,16 +15,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.Card
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -44,6 +44,8 @@ class SettingsActions(
     val onUnhideAll: () -> Unit,
     val onCrossfadeSeconds: (Int) -> Unit,
     val onSmartShuffle: (Boolean) -> Unit,
+    val onTintArt: (Boolean) -> Unit,
+    val onScanlines: (Boolean) -> Unit,
     val onAddFiles: () -> Unit,
     val onAddFolder: () -> Unit,
     val onRescan: () -> Unit,
@@ -65,6 +67,8 @@ fun SettingsScreen(
     library: Library,
     crossfadeMs: Int,
     smartShuffle: Boolean,
+    tintArt: Boolean,
+    scanlines: Boolean,
     accounts: AccountsState,
     hiddenCount: Int,
     busy: Boolean,
@@ -88,17 +92,22 @@ fun SettingsScreen(
             )
         }
 
+        Section("Display") {
+            SwitchRow("Green cover art", "Show album covers in phosphor green", tintArt, actions.onTintArt)
+            SwitchRow("CRT scanlines", "Faint lines across the screen, like an old monitor", scanlines, actions.onScanlines)
+        }
+
         Section("Library") {
             Text(
                 "${library.songs.size} songs · ${library.albums.size} albums · ${library.artists.size} artists",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Hint("Music anywhere on your phone is found and sorted automatically. Adding files copies them into Music/Mixtape.")
+            Hint("Music anywhere on your phone is found and sorted automatically. Adding files copies them into Music/Nexus.")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = actions.onAddFiles) { Text("Add files") }
-                FilledTonalButton(onClick = actions.onAddFolder) { Text("Add a folder") }
+                TacOutlinedButton(onClick = actions.onAddFiles) { Text("Add files") }
+                TacOutlinedButton(onClick = actions.onAddFolder) { Text("Add a folder") }
             }
-            OutlinedButton(onClick = actions.onRescan) { Text("Rescan library") }
+            TacOutlinedButton(onClick = actions.onRescan) { Text("Rescan library") }
             if (hiddenCount > 0) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -117,8 +126,8 @@ fun SettingsScreen(
             Hint("• YouTube Music: takeout.google.com → select only \"YouTube and YouTube Music\" → import \"music library songs.csv\".")
             Hint("• Any service: export a CSV with a free tool like Exportify or TuneMyMusic, or paste lines like \"Artist - Title\".")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = actions.onImportFile, enabled = !busy) { Text("Import a file") }
-                FilledTonalButton(onClick = { pasting = true }) { Text("Paste a list") }
+                TacButton(onClick = actions.onImportFile, enabled = !busy) { Text("Import a file") }
+                TacOutlinedButton(onClick = { pasting = true }) { Text("Paste a list") }
             }
         }
 
@@ -139,7 +148,7 @@ fun SettingsScreen(
         Section("YouTube") {
             Hint("Imports videos you've liked and matches them to your files. Needs a one-time Google Cloud setup (see README).")
             SwitchRow("Music videos only", "Skip liked videos that aren't music", accounts.youTubeMusicOnly, actions.onYouTubeMusicOnly)
-            Button(onClick = actions.onYouTubeImport, enabled = !busy) { Text("Sign in & import likes") }
+            TacButton(onClick = actions.onYouTubeImport, enabled = !busy) { Text("Sign in & import likes") }
         }
 
         Section("SoundCloud") {
@@ -193,12 +202,7 @@ private fun PasteListDialog(onDismiss: () -> Unit, onImport: (String, String) ->
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            content()
-        }
-    }
+    TacPanel(title) { content() }
 }
 
 @Composable
@@ -246,10 +250,10 @@ private fun ConnectRow(
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         if (connected) {
-            Button(onClick = onImport, enabled = !busy) { Text("Import likes") }
-            OutlinedButton(onClick = onDisconnect) { Text("Disconnect") }
+            TacButton(onClick = onImport, enabled = !busy) { Text("Import likes") }
+            TacOutlinedButton(onClick = onDisconnect) { Text("Disconnect") }
         } else {
-            Button(onClick = onConnect, enabled = canConnect && !busy) { Text("Connect") }
+            TacButton(onClick = onConnect, enabled = canConnect && !busy) { Text("Connect") }
         }
     }
 }

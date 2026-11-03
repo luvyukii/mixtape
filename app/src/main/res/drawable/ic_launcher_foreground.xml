@@ -1,23 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A cassette tape -->
+<!-- NEXUS: a green hexagon with targeting ticks and a blocky "N", on black. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- Faint inner hexagon -->
     <path
-        android:fillColor="#FFFF7A59"
-        android:pathData="M30,38h48a4,4 0,0 1,4 4v26a4,4 0,0 1,-4 4H30a4,4 0,0 1,-4 -4V42a4,4 0,0 1,4 -4z" />
+        android:strokeColor="#FF145C26"
+        android:strokeWidth="1.5"
+        android:pathData="M54,31 L73.9,42.5 L73.9,65.5 L54,77 L34.1,65.5 L34.1,42.5 Z" />
+
+    <!-- Main hexagon -->
     <path
-        android:fillColor="#FF1E1A22"
-        android:pathData="M36,46h36v12H36z" />
+        android:strokeColor="#FF3DFF6E"
+        android:strokeWidth="3"
+        android:strokeLineJoin="miter"
+        android:pathData="M54,25 L79.1,39.5 L79.1,68.5 L54,83 L28.9,68.5 L28.9,39.5 Z" />
+
+    <!-- Targeting ticks -->
     <path
-        android:fillColor="#FFFFD6CB"
-        android:pathData="M44,52m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0" />
+        android:strokeColor="#FF3DFF6E"
+        android:strokeWidth="2.5"
+        android:pathData="M54,18.5 L54,22.5 M54,85.5 L54,89.5 M18.5,54 L22.5,54 M85.5,54 L89.5,54" />
+
+    <!-- Blocky N -->
     <path
-        android:fillColor="#FFFFD6CB"
-        android:pathData="M64,52m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0" />
+        android:fillColor="#FF3DFF6E"
+        android:pathData="M44,42 L48.5,42 L48.5,66 L44,66 Z M59.5,42 L64,42 L64,66 L59.5,66 Z M44,42 L48.5,42 L64,66 L59.5,66 Z" />
+
+    <!-- Amber status dot -->
     <path
-        android:fillColor="#FF1E1A22"
-        android:pathData="M42,72l4,-7h16l4,7z" />
+        android:fillColor="#FFFFB627"
+        android:pathData="M76,30 m-2.5,0 a2.5,2.5 0,1 1,5 0 a2.5,2.5 0,1 1,-5 0" />
 </vector>

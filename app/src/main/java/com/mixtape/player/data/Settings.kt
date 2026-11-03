@@ -27,6 +27,14 @@ class Settings(context: Context) {
     private val _crossfadeMs = MutableStateFlow(prefs.getInt(K_CROSSFADE, 6_000))
     val crossfadeMs: StateFlow<Int> = _crossfadeMs.asStateFlow()
 
+    private val _tintArt = MutableStateFlow(prefs.getBoolean(K_TINT_ART, true))
+    val tintArt: StateFlow<Boolean> = _tintArt.asStateFlow()
+    fun setTintArt(on: Boolean) { prefs.edit { putBoolean(K_TINT_ART, on) }; _tintArt.value = on }
+
+    private val _scanlines = MutableStateFlow(prefs.getBoolean(K_SCANLINES, true))
+    val scanlines: StateFlow<Boolean> = _scanlines.asStateFlow()
+    fun setScanlines(on: Boolean) { prefs.edit { putBoolean(K_SCANLINES, on) }; _scanlines.value = on }
+
     private val _smartShuffle = MutableStateFlow(prefs.getBoolean(K_SMART_SHUFFLE, true))
     val smartShuffle: StateFlow<Boolean> = _smartShuffle.asStateFlow()
 
@@ -130,5 +138,7 @@ class Settings(context: Context) {
         private const val K_SC_SECRET = "soundcloud.clientSecret"
         private const val K_YT_MUSIC_ONLY = "youtube.musicOnly"
         private const val K_HIDDEN = "library.hidden"
+        private const val K_TINT_ART = "ui.tintArt"
+        private const val K_SCANLINES = "ui.scanlines"
     }
 }

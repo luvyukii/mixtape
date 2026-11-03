@@ -47,7 +47,7 @@ class YouTubeAuth(private val activity: ComponentActivity) {
         val code = (e as? ApiException)?.statusCode
         val text = when (code) {
             CommonStatusCodes.DEVELOPER_ERROR ->
-                "Google doesn't recognize Mixtape yet. In Google Cloud, create an Android OAuth client with package " +
+                "Google doesn't recognize NEXUS yet. In Google Cloud, create an Android OAuth client with package " +
                     "com.mixtape.player and SHA-1 DB:05:B8:DA:0F:B6:D4:CB:B7:F8:13:9C:27:5C:52:33:D7:83:B0:EF (see README). " +
                     "Or use Settings → Import likes for free instead."
             CommonStatusCodes.NETWORK_ERROR -> "Couldn't reach Google. Check your connection and try again."

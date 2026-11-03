@@ -1,5 +1,7 @@
 package com.mixtape.player.ui.screens
 
+import com.mixtape.player.ui.components.TacButton
+import com.mixtape.player.ui.components.TacOutlinedButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -18,15 +20,12 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -109,19 +108,19 @@ fun PlaylistDetailScreen(
                 Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Button(onClick = { onPlay(playable, 0) }, enabled = playable.isNotEmpty()) {
+                TacButton(onClick = { onPlay(playable, 0) }, enabled = playable.isNotEmpty()) {
                     Icon(Icons.Rounded.PlayArrow, null, Modifier.size(18.dp))
                     Spacer(Modifier.size(6.dp))
                     Text("Play")
                 }
-                FilledTonalButton(onClick = { onShuffle(playable) }, enabled = playable.isNotEmpty()) {
+                TacOutlinedButton(onClick = { onShuffle(playable) }, enabled = playable.isNotEmpty()) {
                     Icon(Icons.Rounded.Shuffle, null, Modifier.size(18.dp))
                     Spacer(Modifier.size(6.dp))
                     Text("Shuffle")
                 }
             }
             if (playlist.source == PlaylistSource.SOUNDCLOUD && missingDownloadable.isNotEmpty()) {
-                OutlinedButton(
+                TacOutlinedButton(
                     onClick = { onDownload(missingDownloadable) },
                     enabled = !busy,
                     modifier = Modifier.padding(horizontal = 16.dp),

@@ -1,5 +1,7 @@
 package com.mixtape.player.ui
 
+import com.mixtape.player.ui.components.TacButton
+import com.mixtape.player.ui.components.TacOutlinedButton
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
@@ -19,12 +21,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.runtime.CompositionLocalProvider
+import com.mixtape.player.ui.components.TacHeader
+import com.mixtape.player.ui.components.TacNavBar
+import com.mixtape.player.ui.components.TacTab
+import com.mixtape.player.ui.components.scanlines
+import com.mixtape.player.ui.theme.LocalTacOptions
+import com.mixtape.player.ui.theme.Tac
+import com.mixtape.player.ui.theme.TacOptions
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarDuration
@@ -75,7 +85,7 @@ sealed interface Detail {
     data class PlaylistD(val id: String) : Detail
 }
 
-private enum class Tab(val label: String) { Library("Library"), Playlists("Playlists"), Browse("Browse"), Settings("Settings") }
+private enum class Tab(val label: String) { Library("Library"), Playlists("Lists"), Browse("Browse"), Settings("Config") }
 
 /** Things that need the Activity (pickers, browser, Google sign-in). */
 class PlatformActions(
@@ -105,6 +115,8 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
     val accounts by vm.accounts.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val hiddenIds by vm.hiddenIds.collectAsStateWithLifecycle()
+    val tintArt by vm.tintArt.collectAsStateWithLifecycle()
+    val scanlines by vm.scanlines.collectAsStateWithLifecycle()
 
     var tab by rememberSaveable { mutableStateOf(Tab.Library) }
     val stack = remember { mutableStateListOf<Detail>() }
@@ -153,35 +165,37 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
     val shuffle: (List<Song>) -> Unit = { songs -> vm.shuffle(songs) }
     val back: () -> Unit = { if (stack.isNotEmpty()) stack.removeAt(stack.lastIndex) }
 
-    Box(Modifier.fillMaxSize()) {
+    val headerStatus = when {
+        busy != null -> busy!!
+        playback.current != null && playback.isPlaying ->
+            "▶ PLAYING ${playback.index + 1}/${playback.queue.size}" + if (playback.crossfading) " · XFADE" else ""
+        playback.current != null -> "‖ PAUSED ${playback.index + 1}/${playback.queue.size}"
+        scanning -> "SCANNING STORAGE…"
+        else -> "${library.songs.size} TRACKS INDEXED"
+    }
+    val navTabs = remember {
+        listOf(
+            TacTab(Tab.Library.label, Icons.Rounded.LibraryMusic),
+            TacTab(Tab.Playlists.label, Icons.AutoMirrored.Rounded.QueueMusic),
+            TacTab(Tab.Browse.label, Icons.Rounded.Explore),
+            TacTab(Tab.Settings.label, Icons.Rounded.Settings),
+        )
+    }
+
+    CompositionLocalProvider(LocalTacOptions provides TacOptions(tintArt = tintArt, scanlines = scanlines)) {
+    Box(Modifier.fillMaxSize().background(Tac.Black).scanlines(scanlines)) {
         Scaffold(
+            containerColor = Tac.Black,
             snackbarHost = { SnackbarHost(snackbar) },
+            topBar = { TacHeader(headerStatus, Modifier.statusBarsPadding(), alert = busy != null) },
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
-                Column {
+                Column(Modifier.navigationBarsPadding()) {
                     MiniPlayer(playback, onOpen = { nowPlayingOpen = true }, onTogglePlay = vm::togglePlay, onNext = vm::next)
-                    NavigationBar {
-                        Tab.entries.forEach { t ->
-                            NavigationBarItem(
-                                selected = tab == t,
-                                onClick = {
-                                    tab = t
-                                    stack.clear()
-                                },
-                                icon = {
-                                    Icon(
-                                        when (t) {
-                                            Tab.Library -> Icons.Rounded.LibraryMusic
-                                            Tab.Playlists -> Icons.AutoMirrored.Rounded.QueueMusic
-                                            Tab.Browse -> Icons.Rounded.Explore
-                                            Tab.Settings -> Icons.Rounded.Settings
-                                        },
-                                        contentDescription = null,
-                                    )
-                                },
-                                label = { Text(t.label) },
-                            )
-                        }
-                    }
+                    TacNavBar(navTabs, selected = tab.ordinal, onSelect = { i ->
+                        tab = Tab.entries[i]
+                        stack.clear()
+                    })
                 }
             },
         ) { padding ->
@@ -190,13 +204,12 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                     .padding(padding)
                     .fillMaxSize()
             ) {
-                busy?.let { label ->
-                    Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
-                        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            Text(label, style = MaterialTheme.typography.bodySmall)
-                            LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 4.dp))
-                        }
-                    }
+                if (busy != null) {
+                    LinearProgressIndicator(
+                        Modifier.fillMaxWidth().height(2.dp),
+                        color = Tac.Amber,
+                        trackColor = Tac.GreenFaint,
+                    )
                 }
                 Box(Modifier.weight(1f)) {
                     when (val detail = stack.lastOrNull()) {
@@ -220,13 +233,15 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                                 onSaveToWishlist = vm::saveToWishlist,
                             )
                             Tab.Settings -> SettingsScreen(
-                                library, crossfadeMs, smartShuffle, accounts, hiddenIds.size, busy != null,
+                                library, crossfadeMs, smartShuffle, tintArt, scanlines, accounts, hiddenIds.size, busy != null,
                                 SettingsActions(
                                     onImportFile = platform.pickLikesFile,
                                     onPasteList = vm::importPastedList,
                                     onUnhideAll = vm::unhideAll,
                                     onCrossfadeSeconds = vm::setCrossfadeSeconds,
                                     onSmartShuffle = vm::setSmartShuffle,
+                                    onTintArt = vm::setTintArt,
+                                    onScanlines = vm::setScanlines,
                                     onAddFiles = platform.pickFiles,
                                     onAddFolder = platform.pickFolder,
                                     onRescan = vm::rescan,
@@ -319,6 +334,7 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
         }
     }
 
+    }
     editing?.let { songs ->
         // Edit using the songs as Android sees them, so "changed" compares against the file.
         EditInfoDialog(
@@ -377,15 +393,15 @@ private fun PermissionScreen(onRequest: () -> Unit) {
         ) {
             Icon(Icons.Rounded.LibraryMusic, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(16.dp))
-            Text("Let Mixtape see your music", style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+            Text("Let NEXUS see your music", style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
             Spacer(Modifier.height(8.dp))
             Text(
-                "Mixtape needs access to audio files on your phone to build your library. Nothing leaves your device.",
+                "NEXUS needs access to audio files on your phone to build your library. Nothing leaves your device.",
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(24.dp))
-            Row { Button(onClick = onRequest) { Text("Allow access") } }
+            Row { TacButton(onClick = onRequest) { Text("Allow access") } }
         }
     }
 }

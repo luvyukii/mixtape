@@ -14,7 +14,7 @@ class UnsupportedFormatException(name: String) : IOException("Can't edit tags in
  * Writes edited info into the music file itself, so other apps see it too.
  * The file is copied out, edited, and copied back over the original.
  * Throws SecurityException (or RecoverableSecurityException) when Android
- * needs the person to allow Mixtape to change that file first.
+ * needs the person to allow NEXUS to change that file first.
  */
 object TagWriter {
 

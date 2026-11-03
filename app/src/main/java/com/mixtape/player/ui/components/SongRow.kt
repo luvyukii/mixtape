@@ -59,7 +59,7 @@ fun SongRow(
         } else ListItemDefaults.colors(),
         headlineContent = {
             Text(
-                song.title,
+                if (isCurrent) "▶ ${song.title}" else song.title,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontWeight = if (isCurrent) FontWeight.SemiBold else null,

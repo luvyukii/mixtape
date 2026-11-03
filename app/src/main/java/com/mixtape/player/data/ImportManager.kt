@@ -13,7 +13,7 @@ import kotlinx.coroutines.withContext
 import java.io.OutputStream
 
 /**
- * Copies music into Music/Mixtape/ so Android indexes it and it shows up in the library.
+ * Copies music into Music/Nexus/ so Android indexes it and it shows up in the library.
  * Music that's already in shared storage appears automatically and doesn't need importing.
  */
 class ImportManager(context: Context) {
@@ -49,7 +49,7 @@ class ImportManager(context: Context) {
     private fun copyIn(src: Uri, subfolder: String, nameHint: String?, mimeHint: String?): Boolean {
         val name = safeName(nameHint ?: displayName(src) ?: "track_${System.currentTimeMillis()}")
         val mime = audioMime(name, mimeHint ?: resolver.getType(src))
-        val relative = "${Environment.DIRECTORY_MUSIC}/Mixtape/$subfolder/"
+        val relative = "${Environment.DIRECTORY_MUSIC}/Nexus/$subfolder/"
         if (alreadyExists(name, relative)) return false
         return runCatching {
             saveAudio(name, mime, relative) { out ->

@@ -101,7 +101,7 @@ class SoundCloudClient(private val settings: Settings) {
     }
 
     /**
-     * Saves the artist-provided download into Music/Mixtape/SoundCloud.
+     * Saves the artist-provided download into Music/Nexus/SoundCloud.
      * Fails cleanly for tracks without downloads enabled.
      */
     suspend fun download(entry: PlaylistEntry, importer: ImportManager): Uri = withContext(Dispatchers.IO) {
@@ -139,7 +139,7 @@ class SoundCloudClient(private val settings: Settings) {
             importer.saveAudio(
                 displayName = name,
                 mime = mime,
-                relativePath = "Music/Mixtape/SoundCloud/",
+                relativePath = "Music/Nexus/SoundCloud/",
                 extra = {
                     put(MediaStore.Audio.Media.TITLE, entry.title)
                     put(MediaStore.Audio.Media.ARTIST, entry.artist)

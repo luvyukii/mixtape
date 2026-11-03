@@ -19,7 +19,7 @@ import java.util.zip.ZipInputStream
 /**
  * Album downloads from stores like Bandcamp arrive as a .zip. They're downloaded into the
  * app's private folder first; when finished, the music inside is copied into
- * Music/Mixtape/Downloads/<album> and the zip is removed.
+ * Music/Nexus/Downloads/<album> and the zip is removed.
  */
 object DownloadUnpacker {
 
@@ -67,7 +67,7 @@ object DownloadUnpacker {
                     importer.saveAudio(
                         displayName = ImportManager.safeName(name),
                         mime = ImportManager.audioMime(name, null),
-                        relativePath = "Music/Mixtape/Downloads/${ImportManager.safeName(folder)}/",
+                        relativePath = "Music/Nexus/Downloads/${ImportManager.safeName(folder)}/",
                     ) { out -> zip.copyTo(out) }
                     count++
                 }

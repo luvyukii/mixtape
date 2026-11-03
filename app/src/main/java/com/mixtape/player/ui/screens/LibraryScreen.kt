@@ -1,5 +1,7 @@
 package com.mixtape.player.ui.screens
 
+import com.mixtape.player.ui.components.TacButton
+import com.mixtape.player.ui.components.TacOutlinedButton
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,16 +29,13 @@ import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
@@ -145,7 +144,7 @@ private fun SongsTab(
                     .padding(start = 16.dp, end = 8.dp, top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                FilledTonalButton(onClick = { onShuffle(songs) }) {
+                TacOutlinedButton(onClick = { onShuffle(songs) }) {
                     Icon(Icons.Rounded.Shuffle, null, Modifier.size(18.dp))
                     Spacer(Modifier.size(8.dp))
                     Text("Shuffle all ${songs.size}")
@@ -295,12 +294,9 @@ private fun SearchResults(
 
 @Composable
 fun SectionHeader(text: String) {
-    Text(
+    com.mixtape.player.ui.components.TacLabel(
         text,
-        style = MaterialTheme.typography.titleSmall,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
+        Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
     )
 }
 
@@ -323,8 +319,8 @@ private fun EmptyLibrary(onAddFiles: () -> Unit, onRescan: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(24.dp))
-        Button(onClick = onAddFiles) { Text("Add music files") }
+        TacButton(onClick = onAddFiles) { Text("Add music files") }
         Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = onRescan) { Text("Scan again") }
+        TacOutlinedButton(onClick = onRescan) { Text("Scan again") }
     }
 }

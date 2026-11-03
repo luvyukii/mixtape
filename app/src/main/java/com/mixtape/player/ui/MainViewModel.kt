@@ -48,6 +48,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val accounts = settings.accounts
     val crossfadeMs = settings.crossfadeMs
     val smartShuffle = settings.smartShuffle
+    val tintArt = settings.tintArt
+    val scanlines = settings.scanlines
+    fun setTintArt(on: Boolean) = settings.setTintArt(on)
+    fun setScanlines(on: Boolean) = settings.setScanlines(on)
 
     private val _hasPermission = MutableStateFlow(false)
     val hasPermission: StateFlow<Boolean> = _hasPermission.asStateFlow()
@@ -68,7 +72,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ---- editing song info -----------------------------------------------------------------
 
-    /** Android's "Allow Mixtape to modify this file?" prompt, for the Activity to show. */
+    /** Android's "Allow NEXUS to modify this file?" prompt, for the Activity to show. */
     private val _writeRequests = MutableSharedFlow<IntentSender>(extraBufferCapacity = 1)
     val writeRequests: SharedFlow<IntentSender> = _writeRequests.asSharedFlow()
 
@@ -83,7 +87,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Saves edited info. It shows in Mixtape right away; with [writeToFile] it's also
+     * Saves edited info. It shows in NEXUS right away; with [writeToFile] it's also
      * written into the files so other apps see it.
      */
     fun saveSongInfo(songs: List<Song>, edit: SongEdit, writeToFile: Boolean) {
@@ -97,7 +101,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val (songs, edit) = pendingTagWrite ?: return
         pendingTagWrite = null
         if (granted) writeTags(songs, edit, askPermission = false)
-        else say("Saved in Mixtape. The file itself wasn't changed.")
+        else say("Saved in NEXUS. The file itself wasn't changed.")
     }
 
     private fun writeTags(songs: List<Song>, edit: SongEdit, askPermission: Boolean) {
@@ -150,8 +154,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 buildString {
                     append("Saved")
                     if (deferred > 0) append(". The playing song's file updates when it finishes")
-                    if (unsupported > 0) append(". $unsupported file type(s) can't hold tags, so those changes are in Mixtape only")
-                    if (failed > 0) append(". $failed file(s) couldn't be changed; edits are in Mixtape only")
+                    if (unsupported > 0) append(". $unsupported file type(s) can't hold tags, so those changes are in NEXUS only")
+                    if (failed > 0) append(". $failed file(s) couldn't be changed; edits are in NEXUS only")
                 }
             )
         }
@@ -207,13 +211,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun importFiles(uris: List<Uri>) = runTask("Adding ${uris.size} file(s)…") {
         val n = app.importer.importFiles(uris)
         app.library.refresh()
-        say(if (n == 0) "Those files are already in your library" else "Added $n file(s) to Music/Mixtape")
+        say(if (n == 0) "Those files are already in your library" else "Added $n file(s) to Music/Nexus")
     }
 
     fun importFolder(tree: Uri) = runTask("Copying folder…") {
         val n = app.importer.importFolder(tree) { copied -> _busy.value = "Copying folder… $copied" }
         app.library.refresh()
-        say(if (n == 0) "No new music found in that folder" else "Added $n file(s) to Music/Mixtape")
+        say(if (n == 0) "No new music found in that folder" else "Added $n file(s) to Music/Nexus")
     }
 
     fun createPlaylist(name: String, songs: List<Song> = emptyList()) {
@@ -339,7 +343,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         app.library.refresh()
         say(
             when {
-                failed == 0 -> "Downloaded $ok track(s) to Music/Mixtape/SoundCloud"
+                failed == 0 -> "Downloaded $ok track(s) to Music/Nexus/SoundCloud"
                 ok == 0 -> "Couldn't download those tracks"
                 else -> "Downloaded $ok, $failed failed"
             }
