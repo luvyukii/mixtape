@@ -414,21 +414,30 @@ fun TacSearchField(
     }
 }
 
-/** Text tabs with a thin underline on the active one; scrolls sideways if needed. */
+/**
+ * Text tabs with a thin underline on the active one. With [fill], the tabs split the full
+ * width evenly; otherwise they keep their natural widths and scroll sideways if needed.
+ */
 @Composable
-fun TacTabsRow(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun TacTabsRow(
+    labels: List<String>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    fill: Boolean = false,
+) {
     Row(
         modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
+            .then(if (fill) Modifier else Modifier.horizontalScroll(rememberScrollState()))
             .padding(horizontal = 8.dp),
     ) {
         labels.forEachIndexed { i, label ->
             val active = i == selected
             Column(
-                Modifier
+                (if (fill) Modifier.weight(1f) else Modifier)
                     .clickable { onSelect(i) }
-                    .padding(horizontal = 10.dp),
+                    .padding(horizontal = if (fill) 4.dp else 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(

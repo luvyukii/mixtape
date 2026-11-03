@@ -111,6 +111,7 @@ fun LibraryScreen(
                     selected = tab,
                     onSelect = { tab = it },
                     modifier = Modifier.padding(top = 4.dp),
+                    fill = true,
                 )
                 PixelReveal(tab, Modifier.weight(1f)) {
                 when (LibraryTab.entries[tab.coerceIn(0, LibraryTab.entries.lastIndex)]) {
