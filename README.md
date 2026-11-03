@@ -36,10 +36,11 @@ Settings → **Import likes for free** reads files you can export yourself, then
 - **YouTube Music:** [takeout.google.com](https://takeout.google.com), select only *YouTube and YouTube Music*, then import `music library songs.csv`.
 - **Anything else:** any CSV with a title column and an artist column works (Exportify, TuneMyMusic, Soundiiz). You can also **Paste a list** with one `Artist - Title` per line.
 
-## Browse YouTube, SoundCloud and Spotify
+## Browse YouTube, SoundCloud, Bandcamp and Spotify
 
 The **Browse** tab opens each site's own web player inside Mixtape, so you can search and play there.
 - **Wishlist:** tap the ➕ icon on a song's page to save it to your *Wishlist* playlist. If you add the file later, it matches automatically.
+- **Bandcamp:** buy or grab free/name-your-price music, then tap Download. Album zips are unpacked into `Music/Mixtape/Downloads/<album>` automatically.
 - **Downloads:** files a site offers itself, like a SoundCloud track whose artist enabled "Download file", save to `Music/Mixtape/Downloads`. YouTube and Spotify don't offer downloads, and Mixtape doesn't rip audio.
 - **Signing in:** Google blocks sign-in inside apps' built-in browsers, so YouTube works signed out. Spotify's web player needs DRM support and may only play previews on some phones.
 

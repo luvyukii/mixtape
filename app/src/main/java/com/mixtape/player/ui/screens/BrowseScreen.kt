@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.mixtape.player.data.DownloadUnpacker
 import com.mixtape.player.data.ImportManager
 import com.mixtape.player.data.PlaylistSource
 
@@ -66,6 +67,10 @@ enum class BrowseSite(
     SoundCloud(
         "SoundCloud", "https://m.soundcloud.com", PlaylistSource.SOUNDCLOUD,
         listOf("soundcloud.com", "sndcdn.com", "soundcloud.cloud"), false,
+    ),
+    Bandcamp(
+        "Bandcamp", "https://bandcamp.com", PlaylistSource.LIST,
+        listOf("bandcamp.com", "bcbits.com"), false,
     ),
     Spotify(
         "Spotify", "https://open.spotify.com", PlaylistSource.SPOTIFY,
@@ -109,7 +114,7 @@ fun BrowseScreen(
                     selected = state.site == i,
                     onClick = { state.site = i },
                     shape = SegmentedButtonDefaults.itemShape(i, BrowseSite.entries.size),
-                ) { Text(s.label) }
+                ) { Text(s.label, maxLines = 1, style = MaterialTheme.typography.labelMedium) }
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
@@ -227,7 +232,8 @@ private fun createWebView(context: Context, site: BrowseSite, state: BrowseState
             return@setDownloadListener
         }
         val name = URLUtil.guessFileName(url, contentDisposition, mimeType)
-        if (!ImportManager.isAudio(name, mimeType)) {
+        val isZip = name.endsWith(".zip", ignoreCase = true) || mimeType == "application/zip"
+        if (!isZip && !ImportManager.isAudio(name, mimeType)) {
             onMessage("Only music files can be saved.")
             return@setDownloadListener
         }
@@ -236,9 +242,17 @@ private fun createWebView(context: Context, site: BrowseSite, state: BrowseState
             .apply { CookieManager.getInstance().getCookie(url)?.let { addRequestHeader("Cookie", it) } }
             .setTitle(name)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, "Mixtape/Downloads/$name")
-        context.getSystemService(DownloadManager::class.java).enqueue(request)
-        onMessage("Downloading “$name” to Music/Mixtape/Downloads")
+        val dm = context.getSystemService(DownloadManager::class.java)
+        if (isZip) {
+            // Albums come zipped: download privately, then unpack the music into the library.
+            request.setDestinationInExternalFilesDir(context, null, "downloads/$name")
+            DownloadUnpacker.track(context, dm.enqueue(request), name.removeSuffix(".zip").removeSuffix(".ZIP"))
+            onMessage("Downloading “$name”. The songs will appear in your library when it's done.")
+        } else {
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, "Mixtape/Downloads/$name")
+            dm.enqueue(request)
+            onMessage("Downloading “$name” to Music/Mixtape/Downloads")
+        }
     }
 
     web.loadUrl(site.home)
@@ -251,6 +265,8 @@ fun parsePageTitle(site: BrowseSite, pageTitle: String): Pair<String, String>? {
     return when (site) {
         BrowseSite.SoundCloud -> // "Stream Song by Artist | Listen online for free on SoundCloud"
             Regex("""^(?:Stream )?(.+?) by (.+?) \|.*SoundCloud""").find(t)?.let { it.groupValues[1] to it.groupValues[2] }
+        BrowseSite.Bandcamp -> // "Song | Artist" (track pages) or "Album | Artist"
+            t.split(" | ").takeIf { it.size == 2 && "bandcamp" !in t.lowercase() }?.let { it[0].trim() to it[1].trim() }
         BrowseSite.Spotify -> // "Song - song and lyrics by Artist | Spotify"
             Regex("""^(.+?) - song(?: and lyrics)? by (.+?) \| Spotify""").find(t)?.let { it.groupValues[1] to it.groupValues[2] }
         BrowseSite.YouTube -> { // "Artist - Song (Official Video) - YouTube"
