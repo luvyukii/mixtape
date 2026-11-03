@@ -121,12 +121,13 @@ fun NowPlayingScreen(
             .navigationBarsPadding()
     ) {
         val landscape = maxWidth > maxHeight
+        val paneMax = maxHeight
         if (landscape) {
             Row(Modifier.fillMaxSize()) {
                 Column(
                     Modifier
                         .fillMaxHeight()
-                        .widthIn(max = maxHeight)
+                        .widthIn(max = paneMax)
                         .padding(start = 8.dp, top = 4.dp, bottom = 12.dp),
                 ) {
                     TopStrip(state, actions.onClose)
