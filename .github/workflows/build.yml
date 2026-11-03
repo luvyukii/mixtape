@@ -21,24 +21,34 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # Open-licensed (SIL OFL) terminal fonts from Google Fonts, bundled into the app.
+      - name: Fetch fonts
+        run: |
+          mkdir -p app/src/main/res/font app/src/main/assets/licenses
+          base=https://raw.githubusercontent.com/google/fonts/main/ofl
+          curl -fsSL --retry 3 -o app/src/main/res/font/share_tech_mono.ttf $base/sharetechmono/ShareTechMono-Regular.ttf
+          curl -fsSL --retry 3 -o app/src/main/res/font/vt323.ttf $base/vt323/VT323-Regular.ttf
+          curl -fsSL --retry 3 -o app/src/main/assets/licenses/ShareTechMono-OFL.txt $base/sharetechmono/OFL.txt
+          curl -fsSL --retry 3 -o app/src/main/assets/licenses/VT323-OFL.txt $base/vt323/OFL.txt
+
       - name: Build APK
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Mixtape.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk NEXUS.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Mixtape-apk
-          path: Mixtape.apk
+          name: NEXUS-apk
+          path: NEXUS.apk
 
       # Puts the APK on the repo's Releases page so it can be downloaded from a phone.
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: Mixtape build ${{ github.run_number }}
-          files: Mixtape.apk
+          name: NEXUS build ${{ github.run_number }}
+          files: NEXUS.apk
           make_latest: true

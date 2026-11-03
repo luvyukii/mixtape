@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mixtape.player.data.Settings
 import com.mixtape.player.playback.PlaybackState
 import com.mixtape.player.playback.RepeatMode
@@ -317,9 +318,9 @@ private fun SeekBar(positionMs: Long, durationMs: Long, onSeek: (Long) -> Unit) 
         )
     }
     Row(Modifier.fillMaxWidth()) {
-        Text("T+" + formatTime((shown * durationMs).toLong()), style = MaterialTheme.typography.labelMedium)
+        Text("T+" + formatTime((shown * durationMs).toLong()), style = MaterialTheme.typography.titleLarge.copy(fontSize = 24.sp))
         Spacer(Modifier.weight(1f))
-        Text(formatTime(durationMs), style = MaterialTheme.typography.labelMedium, color = Tac.GreenMid)
+        Text(formatTime(durationMs), style = MaterialTheme.typography.titleLarge.copy(fontSize = 24.sp), color = Tac.GreenMid)
     }
 }
 

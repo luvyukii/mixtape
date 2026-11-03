@@ -8,3 +8,5 @@
 /captures
 .externalNativeBuild
 .cxx
+/app/src/main/res/font/
+/app/src/main/assets/licenses/

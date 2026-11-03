@@ -13,68 +13,77 @@ import android.webkit.PermissionRequest
 import android.webkit.URLUtil
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.Computer
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 import com.mixtape.player.data.DownloadUnpacker
 import com.mixtape.player.data.ImportManager
 import com.mixtape.player.data.PlaylistSource
+import com.mixtape.player.ui.theme.Tac
 
-/** The three sites you can browse, each in its own official web player. */
+/** The sites you can browse, each in its own official web player. */
 enum class BrowseSite(
     val label: String,
-    val home: String,
+    val mobileHome: String,
+    val desktopHome: String,
     val source: PlaylistSource,
     /** Hosts allowed inside the in-app browser; anything else opens in your normal browser. */
     val hosts: List<String>,
-    /** Load the full desktop site (Spotify's player and SoundCloud's downloads need it). */
-    val desktop: Boolean,
+    /** Which view a site opens in. Spotify's player only runs in its desktop view. */
+    val startDesktop: Boolean,
 ) {
     YouTube(
-        "YouTube", "https://m.youtube.com", PlaylistSource.YOUTUBE,
+        "YouTube", "https://m.youtube.com", "https://www.youtube.com", PlaylistSource.YOUTUBE,
         listOf("youtube.com", "youtu.be", "google.com", "gstatic.com", "googlevideo.com", "ytimg.com"), false,
     ),
-    // SoundCloud's mobile site hides the "Download file" option, so use the full site.
     SoundCloud(
-        "SoundCloud", "https://soundcloud.com", PlaylistSource.SOUNDCLOUD,
-        listOf("soundcloud.com", "sndcdn.com", "soundcloud.cloud"), true,
+        "SoundCloud", "https://m.soundcloud.com", "https://soundcloud.com", PlaylistSource.SOUNDCLOUD,
+        listOf("soundcloud.com", "sndcdn.com", "soundcloud.cloud"), false,
     ),
     Bandcamp(
-        "Bandcamp", "https://bandcamp.com", PlaylistSource.LIST,
+        "Bandcamp", "https://bandcamp.com", "https://bandcamp.com", PlaylistSource.LIST,
         listOf("bandcamp.com", "bcbits.com"), false,
     ),
     Spotify(
-        "Spotify", "https://open.spotify.com", PlaylistSource.SPOTIFY,
+        "Spotify", "https://open.spotify.com", "https://open.spotify.com", PlaylistSource.SPOTIFY,
         listOf("spotify.com", "scdn.co", "spotifycdn.com"), true,
     ),
 }
@@ -84,16 +93,20 @@ enum class BrowseSite(
 class BrowseState {
     var site by mutableIntStateOf(0)
     val views = HashMap<BrowseSite, WebView>()
-    val titles = HashMap<BrowseSite, String>()
+    val desktop = mutableStateMapOf<BrowseSite, Boolean>()
     var progress by mutableIntStateOf(100)
     var canGoBack by mutableStateOf(false)
     var pageTitle by mutableStateOf("")
+
+    fun isDesktop(site: BrowseSite) = desktop[site] ?: site.startDesktop
 }
 
 private const val DESKTOP_UA =
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Width desktop pages are laid out at; the page is then scaled to fit the screen exactly. */
+private const val DESKTOP_WIDTH = 1100
+
 @Composable
 fun BrowseScreen(
     state: BrowseState,
@@ -101,53 +114,112 @@ fun BrowseScreen(
     onSaveToWishlist: (title: String, artist: String, url: String, source: PlaylistSource) -> Unit,
 ) {
     val site = BrowseSite.entries[state.site]
+    val desktop = state.isDesktop(site)
 
     BackHandler(enabled = state.canGoBack) { state.views[site]?.goBack() }
 
     Column(Modifier.fillMaxSize()) {
-        SingleChoiceSegmentedButtonRow(
+        // Site tabs: equal cells, full names, no icons to crowd them.
+        Row(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .border(1.dp, Tac.GreenFaint, MaterialTheme.shapes.small),
         ) {
             BrowseSite.entries.forEachIndexed { i, s ->
-                SegmentedButton(
-                    selected = state.site == i,
-                    onClick = { state.site = i },
-                    shape = SegmentedButtonDefaults.itemShape(i, BrowseSite.entries.size),
-                ) { Text(s.label, maxLines = 1, style = MaterialTheme.typography.labelMedium) }
+                val active = state.site == i
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .background(if (active) Tac.Panel else Color.Transparent)
+                        .clickable { state.site = i },
+                    contentAlignment = Alignment.BottomCenter,
+                ) {
+                    Text(
+                        s.label.uppercase(),
+                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.6.sp),
+                        color = if (active) Tac.Green else Tac.GreenMid,
+                        maxLines = 1,
+                        softWrap = false,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 11.dp),
+                    )
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .background(if (active) Tac.Green else Color.Transparent)
+                    )
+                }
             }
         }
+
+        // Toolbar
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
             IconButton(onClick = { state.views[site]?.goBack() }, enabled = state.canGoBack) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back")
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = if (state.canGoBack) Tac.Green else Tac.GreenFaint)
             }
-            Text(
-                state.pageTitle.ifBlank { site.label },
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    state.pageTitle.ifBlank { site.label },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Tac.Green,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    if (desktop) "DESKTOP VIEW" else "PHONE VIEW",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Tac.GreenMid,
+                )
+            }
+            IconButton(onClick = {
+                state.desktop[site] = !desktop
+                state.views[site]?.let { applyMode(it, site, !desktop, reload = true) }
+            }) {
+                Icon(
+                    if (desktop) Icons.Rounded.Smartphone else Icons.Rounded.Computer,
+                    if (desktop) "Switch to phone view" else "Switch to desktop view",
+                    tint = Tac.GreenMid,
+                )
+            }
             IconButton(onClick = {
                 val view = state.views[site] ?: return@IconButton
                 val parsed = parsePageTitle(site, view.title.orEmpty())
                 if (parsed == null) onMessage("Open a song's page first, then tap save.")
                 else onSaveToWishlist(parsed.first, parsed.second, view.url.orEmpty(), site.source)
-            }) { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, "Save this song to your Wishlist") }
-            IconButton(onClick = { state.views[site]?.reload() }) { Icon(Icons.Rounded.Refresh, "Reload") }
+            }) { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, "Save this song to your Wishlist", tint = Tac.GreenMid) }
+            IconButton(onClick = { state.views[site]?.reload() }) { Icon(Icons.Rounded.Refresh, "Reload", tint = Tac.GreenMid) }
         }
+
         if (site == BrowseSite.SoundCloud) {
             Text(
-                "To download: sign in with email, open a track, tap ••• (More) → Download file. " +
-                    "Only shows when the artist allows downloads.",
+                if (desktop) "DOWNLOAD: open a track → ••• More → Download file (only if the artist allows it)"
+                else "Downloads are only offered in desktop view. Tap the screen icon above to switch.",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Tac.GreenMid,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
             )
         }
-        if (state.progress < 100) {
-            LinearProgressIndicator(progress = { state.progress / 100f }, modifier = Modifier.fillMaxWidth())
+
+        // Thin loading line instead of a chunky bar
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 6.dp)
+                .height(1.dp)
+                .background(Tac.GreenFaint)
+        ) {
+            if (state.progress < 100) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(state.progress / 100f)
+                        .height(1.dp)
+                        .background(Tac.Green)
+                )
+            }
         }
 
         AndroidView(
@@ -167,19 +239,61 @@ fun BrowseScreen(
     }
 }
 
+/**
+ * Sets up phone or desktop view. Phone view uses the site's own mobile layout at the
+ * screen's width. Desktop view lays the page out at a fixed desktop width and scales it to
+ * fit the screen exactly, so there's no sideways scrolling; pinch to zoom in.
+ */
+private fun applyMode(web: WebView, site: BrowseSite, desktop: Boolean, reload: Boolean) {
+    web.settings.apply {
+        userAgentString = if (desktop) DESKTOP_UA else null // null restores the phone's default
+        useWideViewPort = true
+        loadWithOverviewMode = true
+        textZoom = if (desktop) 115 else 100
+    }
+    if (!reload) return
+    val current = web.url
+    val target = when {
+        current == null -> if (desktop) site.desktopHome else site.mobileHome
+        site == BrowseSite.SoundCloud && desktop -> current.replace("://m.soundcloud.com", "://soundcloud.com")
+        site == BrowseSite.SoundCloud && !desktop -> current.replace("://soundcloud.com", "://m.soundcloud.com")
+        site == BrowseSite.YouTube && desktop -> current.replace("://m.youtube.com", "://www.youtube.com")
+        site == BrowseSite.YouTube && !desktop -> current.replace("://www.youtube.com", "://m.youtube.com")
+        else -> current
+    }
+    web.loadUrl(target)
+}
+
+/** Forces a desktop page's layout width so it fits the screen instead of overflowing. */
+private val FIT_DESKTOP_JS = """
+(function() {
+  var m = document.querySelector('meta[name=viewport]');
+  if (!m) { m = document.createElement('meta'); m.name = 'viewport'; document.head.appendChild(m); }
+  m.content = 'width=$DESKTOP_WIDTH, initial-scale=' + (window.screen.width / $DESKTOP_WIDTH) + ', user-scalable=yes';
+})();
+"""
+
 @SuppressLint("SetJavaScriptEnabled")
 private fun createWebView(context: Context, site: BrowseSite, state: BrowseState, onMessage: (String) -> Unit): WebView {
     val web = WebView(context)
+    web.setBackgroundColor(android.graphics.Color.BLACK)
     CookieManager.getInstance().setAcceptCookie(true)
     CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
     web.settings.apply {
         javaScriptEnabled = true
         domStorageEnabled = true
         mediaPlaybackRequiresUserGesture = false
-        loadWithOverviewMode = true
-        useWideViewPort = true
-        if (site.desktop) userAgentString = DESKTOP_UA
+        // Pinch-to-zoom, without the old on-screen +/- buttons.
+        setSupportZoom(true)
+        builtInZoomControls = true
+        displayZoomControls = false
+        cacheMode = WebSettings.LOAD_DEFAULT
     }
+    // Ask sites for their dark theme (and darken those without one) to match the app.
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+        WebSettingsCompat.setAlgorithmicDarkeningAllowed(web.settings, true)
+    }
+    applyMode(web, site, state.isDesktop(site), reload = false)
 
     fun isActive() = BrowseSite.entries[state.site] == site
 
@@ -191,7 +305,7 @@ private fun createWebView(context: Context, site: BrowseSite, state: BrowseState
             if ((scheme == "http" || scheme == "https") && site.hosts.any { host == it || host.endsWith(".$it") }) {
                 return false // stay in the in-app browser
             }
-            // Other sites, app links (intent://, vnd.youtube:, spotify:) open outside Mixtape.
+            // Other sites and app links (vnd.youtube:, spotify:) open outside the app.
             if (scheme == "intent") return true // "open in app" prompts; ignore them
             try {
                 context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -201,6 +315,7 @@ private fun createWebView(context: Context, site: BrowseSite, state: BrowseState
         }
 
         override fun onPageFinished(view: WebView, url: String?) {
+            if (state.isDesktop(site)) view.evaluateJavascript(FIT_DESKTOP_JS, null)
             if (isActive()) {
                 state.canGoBack = view.canGoBack()
                 state.pageTitle = view.title.orEmpty()
@@ -208,6 +323,8 @@ private fun createWebView(context: Context, site: BrowseSite, state: BrowseState
         }
 
         override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+            // Single-page sites (Spotify, SoundCloud) change pages without a full load.
+            if (state.isDesktop(site)) view.evaluateJavascript(FIT_DESKTOP_JS, null)
             if (isActive()) state.canGoBack = view.canGoBack()
         }
     }
@@ -235,7 +352,7 @@ private fun createWebView(context: Context, site: BrowseSite, state: BrowseState
     }
 
     // Saves files the site itself offers to download (e.g. a SoundCloud track whose
-    // artist enabled downloads) into Music/Nexus/Downloads.
+    // artist enabled downloads, or a Bandcamp purchase) into Music/Nexus/Downloads.
     web.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
         if (!url.startsWith("http")) {
             onMessage("This download can't be saved from here.")
@@ -265,7 +382,7 @@ private fun createWebView(context: Context, site: BrowseSite, state: BrowseState
         }
     }
 
-    web.loadUrl(site.home)
+    web.loadUrl(if (state.isDesktop(site)) site.desktopHome else site.mobileHome)
     return web
 }
 

@@ -9,7 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import com.mixtape.player.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -19,16 +21,19 @@ import androidx.compose.ui.unit.sp
  */
 object Tac {
     val Black = Color(0xFF000000)
-    val Panel = Color(0xFF040A05)        // panels sit just above pure black
+    val Panel = Color(0xFF050C07)        // panels sit just above pure black
     val PanelHi = Color(0xFF0A170C)      // pressed / selected rows
-    val Green = Color(0xFF3DFF6E)        // primary phosphor
-    val GreenMid = Color(0xFF29B34D)     // secondary text
-    val GreenDim = Color(0xFF145C26)     // borders, inactive
+    val Green = Color(0xFF4DFF7C)        // primary phosphor
+    val GreenMid = Color(0xFF2FA352)     // secondary text
+    val GreenDim = Color(0xFF16572A)     // borders, inactive
     val GreenFaint = Color(0xFF0B2E14)   // tracks, dividers
     val Amber = Color(0xFFFFB627)        // alerts, "live" indicators
     val Red = Color(0xFFFF4D4D)
 
-    val Mono = FontFamily.Monospace
+    /** Body text: a clean, squared-off digital terminal face. */
+    val Mono = FontFamily(Font(R.font.share_tech_mono))
+    /** Big readouts (clock, titles, timers): a CRT pixel face. */
+    val Display = FontFamily(Font(R.font.vt323))
 }
 
 private val TacColors = darkColorScheme(
@@ -66,24 +71,28 @@ private val TacColors = darkColorScheme(
 private fun mono(style: TextStyle, spacing: Float = 0.5f) =
     style.copy(fontFamily = Tac.Mono, letterSpacing = spacing.sp)
 
+/** The pixel font runs small, so it's set larger to match the body text's weight on screen. */
+private fun display(size: Int, spacing: Float = 1f) =
+    TextStyle(fontFamily = Tac.Display, fontSize = size.sp, lineHeight = (size * 1.05).sp, letterSpacing = spacing.sp)
+
 private val base = Typography()
 
 private val TacType = Typography(
-    displayLarge = mono(base.displayLarge, 0f),
-    displayMedium = mono(base.displayMedium, 0f),
-    displaySmall = mono(base.displaySmall, 0f),
-    headlineLarge = mono(base.headlineLarge, 0f),
-    headlineMedium = mono(base.headlineMedium, 0f),
-    headlineSmall = mono(base.headlineSmall.copy(fontSize = 22.sp), 0f),
-    titleLarge = mono(base.titleLarge.copy(fontSize = 20.sp)),
-    titleMedium = mono(base.titleMedium.copy(fontSize = 15.sp)),
-    titleSmall = mono(base.titleSmall.copy(fontSize = 13.sp), 1.5f),
-    bodyLarge = mono(base.bodyLarge.copy(fontSize = 15.sp), 0.2f),
-    bodyMedium = mono(base.bodyMedium.copy(fontSize = 13.sp), 0.2f),
-    bodySmall = mono(base.bodySmall.copy(fontSize = 11.sp), 0.3f),
-    labelLarge = mono(base.labelLarge.copy(fontSize = 13.sp), 1.5f),
-    labelMedium = mono(base.labelMedium.copy(fontSize = 11.sp), 1.2f),
-    labelSmall = mono(base.labelSmall.copy(fontSize = 10.sp), 1.2f),
+    displayLarge = display(64),
+    displayMedium = display(52),
+    displaySmall = display(42),
+    headlineLarge = display(40),
+    headlineMedium = display(34),
+    headlineSmall = display(30, 1.5f),
+    titleLarge = display(28, 1.5f),
+    titleMedium = mono(base.titleMedium.copy(fontSize = 15.sp), 0.6f),
+    titleSmall = mono(base.titleSmall.copy(fontSize = 12.sp), 2f),
+    bodyLarge = mono(base.bodyLarge.copy(fontSize = 15.sp, lineHeight = 21.sp), 0.3f),
+    bodyMedium = mono(base.bodyMedium.copy(fontSize = 13.sp, lineHeight = 18.sp), 0.3f),
+    bodySmall = mono(base.bodySmall.copy(fontSize = 11.sp, lineHeight = 15.sp), 0.4f),
+    labelLarge = mono(base.labelLarge.copy(fontSize = 12.sp), 2f),
+    labelMedium = mono(base.labelMedium.copy(fontSize = 11.sp), 1.6f),
+    labelSmall = mono(base.labelSmall.copy(fontSize = 10.sp), 1.6f),
 )
 
 private val TacShapes = Shapes(

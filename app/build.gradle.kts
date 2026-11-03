@@ -72,6 +72,7 @@ dependencies {
     // Writing edited title/artist/etc. into music files
     implementation("net.jthink:jaudiotagger:3.0.1")
     implementation("androidx.browser:browser:1.8.0")
+    implementation("androidx.webkit:webkit:1.12.1")
 
     // Google sign-in for YouTube likes
     implementation("com.google.android.gms:play-services-auth:21.3.0")

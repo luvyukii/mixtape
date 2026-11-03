@@ -48,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mixtape.player.ui.theme.Tac
 import kotlinx.coroutines.delay
 import java.time.LocalTime
@@ -112,22 +113,29 @@ fun TacPanel(
     Column(
         modifier
             .fillMaxWidth()
-            .border(1.dp, Tac.GreenDim, MaterialTheme.shapes.medium)
+            .border(1.dp, Tac.GreenFaint, MaterialTheme.shapes.medium)
             .background(Tac.Panel, MaterialTheme.shapes.medium)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .size(width = 3.dp, height = 12.dp)
+                    .background(Tac.Green)
+            )
             Text(
-                " ${title.uppercase()} ",
-                color = Tac.Black,
+                title.uppercase(),
+                color = Tac.Green,
                 style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.background(Tac.Green).padding(horizontal = 6.dp, vertical = 2.dp),
+                modifier = Modifier.padding(start = 8.dp, end = 10.dp),
             )
             Box(
                 Modifier
                     .weight(1f)
                     .height(1.dp)
-                    .background(Tac.GreenDim)
+                    .background(Tac.GreenFaint)
             )
             if (trailing != null) {
                 Text(
@@ -139,8 +147,8 @@ fun TacPanel(
             }
         }
         Column(
-            Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
             content = content,
         )
     }
@@ -154,7 +162,6 @@ fun TacLabel(text: String, modifier: Modifier = Modifier, count: Int? = null) {
             "// ${text.uppercase()}",
             style = MaterialTheme.typography.labelLarge,
             color = Tac.Green,
-            fontWeight = FontWeight.Bold,
         )
         if (count != null) {
             Text(" [$count]", style = MaterialTheme.typography.labelMedium, color = Tac.GreenMid)
@@ -174,7 +181,7 @@ fun Modifier.scanlines(enabled: Boolean): Modifier = if (!enabled) this else dra
     drawContent()
     val step = 3.dp.toPx()
     var y = 0f
-    val line = Color(0x24000000)
+    val line = Color(0x16000000)
     while (y < size.height) {
         drawLine(line, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
         y += step
@@ -219,13 +226,12 @@ fun TacHeader(status: String, modifier: Modifier = Modifier, alert: Boolean = fa
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 "NEXUS" + if (cursorOn) "_" else " ",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge.copy(letterSpacing = 4.sp),
                 color = Tac.Green,
             )
             Text(
@@ -238,7 +244,7 @@ fun TacHeader(status: String, modifier: Modifier = Modifier, alert: Boolean = fa
             )
             Text(
                 now.format(DateTimeFormatter.ofPattern("HH:mm:ss")),
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp),
                 color = Tac.GreenMid,
             )
         }
@@ -246,14 +252,14 @@ fun TacHeader(status: String, modifier: Modifier = Modifier, alert: Boolean = fa
             Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(Tac.GreenDim)
+                .background(Tac.GreenFaint)
         )
     }
 }
 
 class TacTab(val label: String, val icon: ImageVector)
 
-/** Bottom navigation: square cells, the active one inverted. */
+/** Bottom navigation: quiet cells; the active one gets a lit top edge and bright label. */
 @Composable
 fun TacNavBar(tabs: List<TacTab>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().background(Tac.Black)) {
@@ -261,33 +267,34 @@ fun TacNavBar(tabs: List<TacTab>, selected: Int, onSelect: (Int) -> Unit, modifi
             Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(Tac.GreenDim)
+                .background(Tac.GreenFaint)
         )
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
+        Row(Modifier.fillMaxWidth()) {
             tabs.forEachIndexed { i, tab ->
                 val active = i == selected
                 Column(
                     Modifier
                         .weight(1f)
-                        .border(1.dp, if (active) Tac.Green else Tac.GreenFaint, TacButtonShape)
-                        .background(if (active) Tac.Green else Tac.Black, TacButtonShape)
                         .clickable { onSelect(i) }
-                        .padding(vertical = 6.dp),
+                        .background(if (active) Tac.Panel else Tac.Black),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Icon(tab.icon, contentDescription = null, tint = if (active) Tac.Black else Tac.GreenMid, modifier = Modifier.size(20.dp))
+                    Box(
+                        Modifier
+                            .fillMaxWidth(0.55f)
+                            .height(2.dp)
+                            .background(if (active) Tac.Green else Color.Transparent)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Icon(tab.icon, contentDescription = null, tint = if (active) Tac.Green else Tac.GreenDim, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.height(3.dp))
                     Text(
                         tab.label.uppercase(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (active) Tac.Black else Tac.GreenMid,
-                        fontWeight = if (active) FontWeight.Bold else null,
+                        color = if (active) Tac.Green else Tac.GreenMid,
                         maxLines = 1,
                     )
+                    Spacer(Modifier.height(8.dp))
                 }
             }
         }
