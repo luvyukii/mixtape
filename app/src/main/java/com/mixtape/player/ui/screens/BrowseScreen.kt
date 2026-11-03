@@ -58,6 +58,17 @@ import com.mixtape.player.data.DownloadUnpacker
 import com.mixtape.player.data.ImportManager
 import com.mixtape.player.data.PlaylistSource
 import com.mixtape.player.ui.theme.Tac
+import com.mixtape.player.ui.components.TacTabsRow
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 
 /** The sites you can browse, each in its own official web player. */
 enum class BrowseSite(
@@ -86,6 +97,13 @@ enum class BrowseSite(
         "Spotify", "https://open.spotify.com", "https://open.spotify.com", PlaylistSource.SPOTIFY,
         listOf("spotify.com", "scdn.co", "spotifycdn.com"), true,
     ),
+    /** A general-purpose browser that starts at Google; any site stays inside it. */
+    Web(
+        "Web", "https://www.google.com", "https://www.google.com", PlaylistSource.LIST,
+        emptyList(), false,
+    );
+
+    fun allows(host: String) = hosts.isEmpty() || hosts.any { host == it || host.endsWith(".$it") }
 }
 
 /** Keeps each site's page alive while you switch tabs. */
@@ -97,6 +115,7 @@ class BrowseState {
     var progress by mutableIntStateOf(100)
     var canGoBack by mutableStateOf(false)
     var pageTitle by mutableStateOf("")
+    var url by mutableStateOf("")
 
     fun isDesktop(site: BrowseSite) = desktop[site] ?: site.startDesktop
 }
@@ -119,41 +138,18 @@ fun BrowseScreen(
     BackHandler(enabled = state.canGoBack) { state.views[site]?.goBack() }
 
     Column(Modifier.fillMaxSize()) {
-        // Site tabs: equal cells, full names, no icons to crowd them.
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-                .border(1.dp, Tac.GreenFaint, MaterialTheme.shapes.small),
-        ) {
-            BrowseSite.entries.forEachIndexed { i, s ->
-                val active = state.site == i
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .background(if (active) Tac.Panel else Color.Transparent)
-                        .clickable { state.site = i },
-                    contentAlignment = Alignment.BottomCenter,
-                ) {
-                    Text(
-                        s.label.uppercase(),
-                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.6.sp),
-                        color = if (active) Tac.Green else Tac.GreenMid,
-                        maxLines = 1,
-                        softWrap = false,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 11.dp),
-                    )
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(2.dp)
-                            .background(if (active) Tac.Green else Color.Transparent)
-                    )
-                }
-            }
+        TacTabsRow(
+            labels = BrowseSite.entries.map { it.label },
+            selected = state.site,
+            onSelect = { state.site = it },
+        )
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Tac.GreenFaint))
+
+        if (site == BrowseSite.Web) {
+            AddressBar(
+                url = state.url,
+                onGo = { input -> state.views[site]?.loadUrl(toUrl(input)) },
+            )
         }
 
         // Toolbar
@@ -234,6 +230,7 @@ fun BrowseScreen(
                 }
                 state.canGoBack = view.canGoBack()
                 state.pageTitle = view.title.orEmpty()
+                state.url = view.url.orEmpty()
             },
         )
     }
@@ -302,7 +299,7 @@ private fun createWebView(context: Context, site: BrowseSite, state: BrowseState
             val uri = request.url
             val host = uri.host.orEmpty()
             val scheme = uri.scheme.orEmpty()
-            if ((scheme == "http" || scheme == "https") && site.hosts.any { host == it || host.endsWith(".$it") }) {
+            if ((scheme == "http" || scheme == "https") && site.allows(host)) {
                 return false // stay in the in-app browser
             }
             // Other sites and app links (vnd.youtube:, spotify:) open outside the app.
@@ -319,13 +316,17 @@ private fun createWebView(context: Context, site: BrowseSite, state: BrowseState
             if (isActive()) {
                 state.canGoBack = view.canGoBack()
                 state.pageTitle = view.title.orEmpty()
+                state.url = view.url.orEmpty()
             }
         }
 
         override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
             // Single-page sites (Spotify, SoundCloud) change pages without a full load.
             if (state.isDesktop(site)) view.evaluateJavascript(FIT_DESKTOP_JS, null)
-            if (isActive()) state.canGoBack = view.canGoBack()
+            if (isActive()) {
+                state.canGoBack = view.canGoBack()
+                state.url = view.url.orEmpty()
+            }
         }
     }
 
@@ -341,7 +342,7 @@ private fun createWebView(context: Context, site: BrowseSite, state: BrowseState
         // Spotify's player needs protected-media (DRM) playback.
         override fun onPermissionRequest(request: PermissionRequest) {
             val host = request.origin.host.orEmpty()
-            if (site.hosts.any { host == it || host.endsWith(".$it") } &&
+            if (site.hosts.isNotEmpty() && site.allows(host) &&
                 PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID in request.resources
             ) {
                 request.grant(arrayOf(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID))
@@ -386,6 +387,46 @@ private fun createWebView(context: Context, site: BrowseSite, state: BrowseState
     return web
 }
 
+/** Turns what was typed into a web address, or a Google search. */
+private fun toUrl(input: String): String {
+    val t = input.trim()
+    return when {
+        t.startsWith("http://") || t.startsWith("https://") -> t
+        !t.contains(' ') && t.contains('.') -> "https://$t"
+        else -> "https://www.google.com/search?q=" + Uri.encode(t)
+    }
+}
+
+@Composable
+private fun AddressBar(url: String, onGo: (String) -> Unit) {
+    var text by remember(url) { mutableStateOf(url) }
+    val focus = LocalFocusManager.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .border(1.dp, Tac.GreenDim, MaterialTheme.shapes.extraSmall)
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("›", style = MaterialTheme.typography.titleLarge, color = Tac.GreenMid)
+        Spacer(Modifier.width(8.dp))
+        BasicTextField(
+            value = text,
+            onValueChange = { text = it },
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodySmall.copy(color = Tac.Green),
+            cursorBrush = SolidColor(Tac.Bright),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go, keyboardType = KeyboardType.Uri),
+            keyboardActions = KeyboardActions(onGo = {
+                focus.clearFocus()
+                if (text.isNotBlank()) onGo(text)
+            }),
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
 /** Pulls song title and artist out of the page title, or null if this isn't a song page. */
 fun parsePageTitle(site: BrowseSite, pageTitle: String): Pair<String, String>? {
     val t = pageTitle.trim()
@@ -396,6 +437,8 @@ fun parsePageTitle(site: BrowseSite, pageTitle: String): Pair<String, String>? {
             t.split(" | ").takeIf { it.size == 2 && "bandcamp" !in t.lowercase() }?.let { it[0].trim() to it[1].trim() }
         BrowseSite.Spotify -> // "Song - song and lyrics by Artist | Spotify"
             Regex("""^(.+?) - song(?: and lyrics)? by (.+?) \| Spotify""").find(t)?.let { it.groupValues[1] to it.groupValues[2] }
+        BrowseSite.Web -> t.split(" - ", " | ", limit = 2).takeIf { it.size == 2 && t.length < 120 }
+            ?.let { it[1].trim() to it[0].trim() }
         BrowseSite.YouTube -> { // "Artist - Song (Official Video) - YouTube"
             if (!t.endsWith(" - YouTube") || t == "YouTube") null else {
                 val video = t.removeSuffix(" - YouTube")

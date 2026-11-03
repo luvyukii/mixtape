@@ -27,9 +27,10 @@ jobs:
           mkdir -p app/src/main/res/font app/src/main/assets/licenses
           base=https://raw.githubusercontent.com/google/fonts/main/ofl
           curl -fsSL --retry 3 -o app/src/main/res/font/share_tech_mono.ttf $base/sharetechmono/ShareTechMono-Regular.ttf
-          curl -fsSL --retry 3 -o app/src/main/res/font/vt323.ttf $base/vt323/VT323-Regular.ttf
+          curl -fsSL --retry 3 -o app/src/main/res/font/plex_mono_regular.ttf $base/ibmplexmono/IBMPlexMono-Regular.ttf
+          curl -fsSL --retry 3 -o app/src/main/res/font/plex_mono_medium.ttf $base/ibmplexmono/IBMPlexMono-Medium.ttf
           curl -fsSL --retry 3 -o app/src/main/assets/licenses/ShareTechMono-OFL.txt $base/sharetechmono/OFL.txt
-          curl -fsSL --retry 3 -o app/src/main/assets/licenses/VT323-OFL.txt $base/vt323/OFL.txt
+          curl -fsSL --retry 3 -o app/src/main/assets/licenses/IBMPlexMono-OFL.txt $base/ibmplexmono/OFL.txt
 
       - name: Build APK
         run: |

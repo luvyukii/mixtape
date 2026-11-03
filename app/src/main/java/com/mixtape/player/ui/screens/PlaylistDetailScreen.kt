@@ -1,5 +1,7 @@
 package com.mixtape.player.ui.screens
 
+import androidx.compose.runtime.SideEffect
+
 import com.mixtape.player.ui.components.TacButton
 import com.mixtape.player.ui.components.TacOutlinedButton
 import androidx.compose.foundation.layout.Arrangement
@@ -83,6 +85,7 @@ fun PlaylistDetailScreen(
     val subtitle = if (isLocal) "${playlist.entries.size} songs"
     else "${playable.size} of ${playlist.entries.size} on this phone · ${playlist.source.label}"
 
+    SideEffect { actions.selection.pool = playable }
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             CollectionHeader(playlist.name, subtitle, playable.firstOrNull(), onBack) {

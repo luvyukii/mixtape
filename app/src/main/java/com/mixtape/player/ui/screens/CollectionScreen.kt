@@ -1,5 +1,7 @@
 package com.mixtape.player.ui.screens
 
+import androidx.compose.runtime.SideEffect
+
 import com.mixtape.player.ui.components.TacButton
 import com.mixtape.player.ui.components.TacOutlinedButton
 import androidx.compose.foundation.layout.Arrangement
@@ -47,6 +49,7 @@ fun CollectionScreen(
     headerActions: @Composable () -> Unit = {},
     extraItems: LazyListScope.() -> Unit = {},
 ) {
+    SideEffect { actions.selection.pool = songs }
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             CollectionHeader(title, subtitle, songs.firstOrNull(), onBack, headerActions)

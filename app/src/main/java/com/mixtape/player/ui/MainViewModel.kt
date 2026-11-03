@@ -48,6 +48,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val accounts = settings.accounts
     val crossfadeMs = settings.crossfadeMs
     val smartShuffle = settings.smartShuffle
+    val boostDb = settings.boostDb
+    val hiRes = settings.hiRes
+    fun setBoostDb(db: Int) = settings.setBoostDb(db)
+    fun setHiRes(on: Boolean) {
+        settings.setHiRes(on)
+        say(if (on) "Hi-res output turns on next time NEXUS starts" else "Hi-res output turns off next time NEXUS starts")
+    }
+    fun moveInQueue(from: Int, to: Int) = engine.moveInQueue(from, to)
     val tintArt = settings.tintArt
     val scanlines = settings.scanlines
     fun setTintArt(on: Boolean) = settings.setTintArt(on)
@@ -76,7 +84,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _writeRequests = MutableSharedFlow<IntentSender>(extraBufferCapacity = 1)
     val writeRequests: SharedFlow<IntentSender> = _writeRequests.asSharedFlow()
 
-    private var pendingTagWrite: Pair<List<Song>, SongEdit>? = null
+    private var pendingTagWrite: List<Pair<Song, SongEdit>>? = null
     /** Edits for songs that were playing; written into the file once they stop. */
     private val deferredWrites = LinkedHashMap<Long, Pair<Song, SongEdit>>()
 
@@ -90,31 +98,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * Saves edited info. It shows in NEXUS right away; with [writeToFile] it's also
      * written into the files so other apps see it.
      */
-    fun saveSongInfo(songs: List<Song>, edit: SongEdit, writeToFile: Boolean) {
+    fun saveSongInfo(songs: List<Song>, edit: SongEdit, writeToFile: Boolean, renumber: Boolean = false) {
         if (songs.isEmpty()) return
-        app.metadata.apply(songs.map { it.id }, edit)
-        if (writeToFile) writeTags(songs, edit, askPermission = true)
-        else say("Saved")
+        // With renumbering, each song gets its own track number in the order they were picked.
+        val items = songs.mapIndexed { i, s ->
+            s to if (renumber) edit.copy(track = (s.track / 1000) * 1000 + i + 1) else edit
+        }
+        app.metadata.applyEach(items.associate { (s, e) -> s.id to e })
+        if (writeToFile) writeTags(items, askPermission = true)
+        else say(if (songs.size == 1) "Saved" else "Saved ${songs.size} songs")
     }
 
     fun onWritePermissionResult(granted: Boolean) {
-        val (songs, edit) = pendingTagWrite ?: return
+        val items = pendingTagWrite ?: return
         pendingTagWrite = null
-        if (granted) writeTags(songs, edit, askPermission = false)
+        if (granted) writeTags(items, askPermission = false)
         else say("Saved in NEXUS. The file itself wasn't changed.")
     }
 
-    private fun writeTags(songs: List<Song>, edit: SongEdit, askPermission: Boolean) {
+    private fun writeTags(items: List<Pair<Song, SongEdit>>, askPermission: Boolean) {
         viewModelScope.launch {
             val playingId = engine.state.value.current?.id
-            val needPermission = ArrayList<Song>()
+            val needPermission = ArrayList<Pair<Song, SongEdit>>()
+            val showProgress = items.size > 3 && _busy.value == null
+            if (showProgress) _busy.value = "Writing tags…"
             var recoverable: RecoverableSecurityException? = null
             var written = 0
             var deferred = 0
             var unsupported = 0
             var failed = 0
             withContext(Dispatchers.IO) {
-                for (song in songs) {
+                for ((n, item) in items.withIndex()) {
+                    val (song, edit) = item
+                    if (showProgress && n % 5 == 0) _busy.value = "Writing tags ${n + 1}/${items.size}"
                     try {
                         if (song.id == playingId) {
                             // Rewriting a file mid-playback would glitch it; check access now, write later.
@@ -126,10 +142,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             written++
                         }
                     } catch (e: RecoverableSecurityException) {
-                        needPermission += song
+                        needPermission += item
                         if (recoverable == null) recoverable = e
                     } catch (e: SecurityException) {
-                        needPermission += song
+                        needPermission += item
                     } catch (e: UnsupportedFormatException) {
                         unsupported++
                     } catch (e: Exception) {
@@ -138,12 +154,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             }
+            if (showProgress) _busy.value = null
             if (needPermission.isNotEmpty() && askPermission) {
                 val sender = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    MediaStore.createWriteRequest(app.contentResolver, needPermission.map { it.uri }).intentSender
+                    MediaStore.createWriteRequest(app.contentResolver, needPermission.map { it.first.uri }).intentSender
                 } else recoverable?.userAction?.actionIntent?.intentSender
                 if (sender != null) {
-                    pendingTagWrite = needPermission to edit
+                    pendingTagWrite = needPermission
                     _writeRequests.tryEmit(sender)
                     return@launch
                 }
@@ -152,7 +169,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (written > 0) app.library.refresh()
             say(
                 buildString {
-                    append("Saved")
+                    append(if (items.size == 1) "Saved" else "Saved ${items.size} songs")
                     if (deferred > 0) append(". The playing song's file updates when it finishes")
                     if (unsupported > 0) append(". $unsupported file type(s) can't hold tags, so those changes are in NEXUS only")
                     if (failed > 0) append(". $failed file(s) couldn't be changed; edits are in NEXUS only")
@@ -228,6 +245,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun addToPlaylist(playlistId: String, songs: List<Song>) {
         app.playlists.addSongs(playlistId, songs)
         say("Added to “${app.playlists.get(playlistId)?.name}”")
+    }
+
+    fun hideSongs(songs: List<Song>) {
+        if (songs.isEmpty()) return
+        val ids = songs.map { it.id }
+        settings.hide(ids)
+        _messages.tryEmit(UiMessage("Hid ${songs.size} songs", "Undo") { settings.unhide(ids) })
+    }
+
+    fun playNextAll(songs: List<Song>) {
+        engine.playNext(songs)
+        say("${songs.size} songs play next")
+    }
+
+    fun queueAll(songs: List<Song>) {
+        engine.addToQueue(songs)
+        say("Added ${songs.size} songs to the queue")
     }
 
     /** Hides a song from the library without touching the file. */

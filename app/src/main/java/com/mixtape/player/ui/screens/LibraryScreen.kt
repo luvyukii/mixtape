@@ -61,6 +61,10 @@ import com.mixtape.player.ui.Detail
 import com.mixtape.player.ui.components.AlbumArt
 import com.mixtape.player.ui.components.SongActions
 import com.mixtape.player.ui.components.SongRow
+import com.mixtape.player.ui.components.TacSearchField
+import com.mixtape.player.ui.components.TacTabsRow
+import com.mixtape.player.ui.theme.Tac
+import androidx.compose.runtime.SideEffect
 
 private enum class LibraryTab(val label: String) { Songs("Songs"), Albums("Albums"), Artists("Artists"), Genres("Genres"), Folders("Folders") }
 private enum class SongSort(val label: String) { Title("Title"), Artist("Artist"), Recent("Recently added"), Album("Album") }
@@ -81,31 +85,24 @@ fun LibraryScreen(
     var tab by rememberSaveable { mutableIntStateOf(0) }
 
     Column(Modifier.fillMaxSize()) {
-        OutlinedTextField(
+        TacSearchField(
             value = query,
             onValueChange = { query = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            placeholder = { Text("Search songs, artists, albums") },
-            leadingIcon = { Icon(Icons.Rounded.Search, null) },
-            trailingIcon = {
-                if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Clear, "Clear search") }
-            },
-            singleLine = true,
-            shape = MaterialTheme.shapes.extraLarge,
+            placeholder = "search songs, artists, albums",
+            modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 4.dp),
         )
-        if (scanning) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (scanning) LinearProgressIndicator(Modifier.fillMaxWidth().height(1.dp), color = Tac.Bright, trackColor = Tac.GreenFaint)
 
         when {
             library.songs.isEmpty() && !scanning -> EmptyLibrary(onAddFiles, onRescan)
             query.isNotBlank() -> SearchResults(library, query.trim(), currentSongId, actions, onOpen, onPlay)
             else -> {
-                ScrollableTabRow(selectedTabIndex = tab, edgePadding = 16.dp) {
-                    LibraryTab.entries.forEachIndexed { i, t ->
-                        Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t.label) })
-                    }
-                }
+                TacTabsRow(
+                    labels = LibraryTab.entries.map { it.label },
+                    selected = tab,
+                    onSelect = { tab = it },
+                    modifier = Modifier.padding(top = 4.dp),
+                )
                 when (LibraryTab.entries[tab]) {
                     LibraryTab.Songs -> SongsTab(library.songs, currentSongId, actions, onPlay, onShuffle)
                     LibraryTab.Albums -> AlbumsGrid(library.albums) { onOpen(Detail.AlbumD(it.id)) }
@@ -136,12 +133,13 @@ private fun SongsTab(
             SongSort.Album -> songs.sortedWith(compareBy<Song>({ it.album.lowercase() }, { it.track }))
         }
     }
+    SideEffect { actions.selection.pool = sorted }
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 8.dp, top = 8.dp),
+                    .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TacOutlinedButton(onClick = { onShuffle(songs) }) {
@@ -151,11 +149,24 @@ private fun SongsTab(
                 }
                 Spacer(Modifier.weight(1f))
                 Box {
-                    IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Rounded.Sort, "Sort") }
+                    Text(
+                        "SORT · ${sort.label.uppercase()}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Tac.GreenMid,
+                        modifier = Modifier
+                            .clickable { sortMenu = true }
+                            .padding(horizontal = 8.dp, vertical = 12.dp),
+                    )
                     DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                         SongSort.entries.forEach { s ->
                             DropdownMenuItem(
-                                text = { Text(if (s == sort) "✓  ${s.label}" else "    ${s.label}") },
+                                text = {
+                                    Text(
+                                        s.label,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (s == sort) Tac.Bright else Tac.Green,
+                                    )
+                                },
                                 onClick = { sort = s; sortMenu = false },
                             )
                         }
@@ -215,13 +226,13 @@ private fun GroupList(
                 supportingContent = { Text(g.subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 leadingContent = {
                     if (folderIcon) {
-                        Icon(Icons.Rounded.Folder, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Rounded.Folder, null, Modifier.size(28.dp), tint = Tac.GreenMid)
                     } else {
                         AlbumArt(
                             g.songs.firstOrNull(),
                             Modifier.size(48.dp),
                             sizePx = 144,
-                            shape = if (circleArt) CircleShape else MaterialTheme.shapes.small,
+                            shape = MaterialTheme.shapes.extraSmall,
                         )
                     }
                 },
@@ -250,6 +261,7 @@ private fun SearchResults(
         library.albums.filter { it.title.lowercase().contains(q) || it.artist.lowercase().contains(q) }.take(8)
     }
 
+    SideEffect { actions.selection.pool = songs }
     LazyColumn(Modifier.fillMaxSize()) {
         if (songs.isEmpty() && artists.isEmpty() && albums.isEmpty()) {
             item {
@@ -268,7 +280,7 @@ private fun SearchResults(
                     modifier = Modifier.clickable { onOpen(Detail.ArtistD(g.key)) },
                     headlineContent = { Text(g.name) },
                     supportingContent = { Text(g.subtitle) },
-                    leadingContent = { AlbumArt(g.songs.firstOrNull(), Modifier.size(48.dp), sizePx = 144, shape = CircleShape) },
+                    leadingContent = { AlbumArt(g.songs.firstOrNull(), Modifier.size(48.dp), sizePx = 144, shape = MaterialTheme.shapes.extraSmall) },
                 )
             }
         }

@@ -19,7 +19,6 @@ import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.SmartDisplay
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -67,20 +66,22 @@ fun PlaylistsScreen(
                         Text(if (p.source == PlaylistSource.LOCAL) "${p.entries.size} songs" else "${p.entries.size} likes · ${p.source.label}")
                     },
                     leadingContent = {
-                        Icon(iconFor(p.source), null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
+                        Icon(iconFor(p.source), null, Modifier.size(24.dp), tint = com.mixtape.player.ui.theme.Tac.GreenMid)
                     },
                 )
             }
             item { Spacer(Modifier.height(88.dp)) }
         }
-        ExtendedFloatingActionButton(
+        com.mixtape.player.ui.components.TacButton(
             onClick = { creating = true },
-            icon = { Icon(Icons.Rounded.Add, null) },
-            text = { Text("New playlist") },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp),
-        )
+        ) {
+            Icon(Icons.Rounded.Add, null, Modifier.size(16.dp))
+            Spacer(Modifier.size(8.dp))
+            Text("NEW PLAYLIST")
+        }
     }
     if (creating) {
         NameDialog(

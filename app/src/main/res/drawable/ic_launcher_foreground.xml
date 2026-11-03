@@ -1,43 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- NEXUS: a segmented green X with a diamond core, framed by corner brackets. -->
+<!-- NEXUS: a simple glowing green X. The glow is stacked soft strokes under a bright core. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Corner brackets -->
     <path
-        android:strokeColor="#FF145C26"
-        android:strokeWidth="1"
-        android:pathData="M23,31 L23,23 L31,23 M77,23 L85,23 L85,31 M85,77 L85,85 L77,85 M31,85 L23,85 L23,77" />
-
-    <!-- Soft glow behind the blades -->
-    <path
-        android:fillColor="#FF3DFF6E"
-        android:fillAlpha="0.18"
         android:strokeColor="#FF3DFF6E"
-        android:strokeAlpha="0.18"
+        android:strokeAlpha="0.05"
+        android:strokeWidth="22"
+        android:strokeLineCap="round"
+        android:pathData="M36,36 L72,72 M72,36 L36,72" />
+    <path
+        android:strokeColor="#FF3DFF6E"
+        android:strokeAlpha="0.08"
+        android:strokeWidth="15"
+        android:strokeLineCap="round"
+        android:pathData="M36,36 L72,72 M72,36 L36,72" />
+    <path
+        android:strokeColor="#FF3DFF6E"
+        android:strokeAlpha="0.16"
+        android:strokeWidth="9.5"
+        android:strokeLineCap="round"
+        android:pathData="M36,36 L72,72 M72,36 L36,72" />
+    <path
+        android:strokeColor="#FF3DFF6E"
+        android:strokeAlpha="0.9"
         android:strokeWidth="5"
-        android:strokeLineJoin="round"
-        android:pathData="M26,29 L29,26 L49.5,46.5 L46.5,49.5 Z M82,29 L79,26 L58.5,46.5 L61.5,49.5 Z M26,79 L29,82 L49.5,61.5 L46.5,58.5 Z M82,79 L79,82 L58.5,61.5 L61.5,58.5 Z" />
-
-    <!-- Blade tips -->
+        android:strokeLineCap="round"
+        android:pathData="M36,36 L72,72 M72,36 L36,72" />
     <path
-        android:fillColor="#FF3DFF6E"
-        android:pathData="M24,31 L31,24 L36,29 L29,36 Z M84,31 L77,24 L72,29 L79,36 Z M24,77 L31,84 L36,79 L29,72 Z M84,77 L77,84 L72,79 L79,72 Z" />
-
-    <!-- Blades -->
-    <path
-        android:fillColor="#FF3DFF6E"
-        android:pathData="M30.5,35.5 L35.5,30.5 L50,45 L45,50 Z M77.5,35.5 L72.5,30.5 L58,45 L63,50 Z M30.5,72.5 L35.5,77.5 L50,63 L45,58 Z M77.5,72.5 L72.5,77.5 L58,63 L63,58 Z" />
-
-    <!-- Diamond core -->
-    <path
-        android:strokeColor="#FF3DFF6E"
+        android:strokeColor="#FFD4FFDF"
+        android:strokeAlpha="0.95"
         android:strokeWidth="1.6"
-        android:pathData="M54,45 L63,54 L54,63 L45,54 Z" />
-    <path
-        android:fillColor="#FF3DFF6E"
-        android:pathData="M54,50.5 L57.5,54 L54,57.5 L50.5,54 Z" />
+        android:strokeLineCap="round"
+        android:pathData="M36,36 L72,72 M72,36 L36,72" />
 </vector>

@@ -47,6 +47,15 @@ class MetadataStore(context: Context) {
         save(next)
     }
 
+    /** Applies a different edit to each song, with one save. */
+    @Synchronized
+    fun applyEach(edits: Map<Long, SongEdit>) {
+        val next = _edits.value.toMutableMap()
+        edits.forEach { (id, edit) -> next[id] = (next[id] ?: SongEdit()).mergedWith(edit) }
+        _edits.value = next
+        save(next)
+    }
+
     @Synchronized
     fun forget(ids: Collection<Long>) {
         val next = _edits.value - ids.toSet()

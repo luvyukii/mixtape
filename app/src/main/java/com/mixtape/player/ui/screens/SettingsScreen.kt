@@ -2,6 +2,11 @@ package com.mixtape.player.ui.screens
 
 import com.mixtape.player.ui.components.TacButton
 import com.mixtape.player.ui.components.TacPanel
+import com.mixtape.player.ui.components.TacSwitch
+import com.mixtape.player.ui.theme.Tac
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import com.mixtape.player.ui.components.TacOutlinedButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -39,6 +43,8 @@ import com.mixtape.player.integrations.SoundCloudClient
 import com.mixtape.player.integrations.SpotifyClient
 
 class SettingsActions(
+    val onBoostDb: (Int) -> Unit,
+    val onHiRes: (Boolean) -> Unit,
     val onImportFile: () -> Unit,
     val onPasteList: (name: String, text: String) -> Unit,
     val onUnhideAll: () -> Unit,
@@ -72,18 +78,30 @@ fun SettingsScreen(
     accounts: AccountsState,
     hiddenCount: Int,
     busy: Boolean,
+    boostDb: Int,
+    hiRes: Boolean,
     actions: SettingsActions,
 ) {
     var pasting by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     Column(
         Modifier
-            .fillMaxSize()
+            .widthIn(max = 680.dp)
+            .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = 20.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(30.dp),
     ) {
         Section("Playback") {
             CrossfadeControl(crossfadeMs, actions.onCrossfadeSeconds)
+            BoostControl(boostDb, actions.onBoostDb)
+            Hint("Boost raises quiet tracks through a limiter, so loud parts don't distort. Go easy on headphones.")
+            SwitchRow(
+                "Hi-res output",
+                "Play 24-bit files at full resolution instead of 16-bit. The visualizer pauses on those files. Applies after restarting NEXUS.",
+                hiRes,
+                actions.onHiRes,
+            )
             SwitchRow(
                 "Smart shuffle",
                 "Avoid playing the same artist twice in a row",
@@ -94,7 +112,7 @@ fun SettingsScreen(
 
         Section("Display") {
             SwitchRow("Green cover art", "Show album covers in phosphor green", tintArt, actions.onTintArt)
-            SwitchRow("CRT scanlines", "Faint lines across the screen, like an old monitor", scanlines, actions.onScanlines)
+            SwitchRow("Screen texture", "Fine grain, faint scanlines and a dark vignette", scanlines, actions.onScanlines)
         }
 
         Section("Library") {
@@ -167,6 +185,7 @@ fun SettingsScreen(
         }
         Spacer(Modifier.height(24.dp))
     }
+    }
 
     if (pasting) {
         PasteListDialog(
@@ -219,10 +238,11 @@ private fun Hint(text: String, mono: Boolean = false) {
 private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = Tac.Green)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Tac.GreenMid)
         }
-        Switch(checked = checked, onCheckedChange = onChange)
+        Spacer(Modifier.width(16.dp))
+        TacSwitch(checked = checked, onCheckedChange = onChange)
     }
 }
 

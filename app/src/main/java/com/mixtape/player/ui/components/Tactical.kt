@@ -1,16 +1,13 @@
 package com.mixtape.player.ui.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import android.graphics.Bitmap
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,17 +16,27 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SnackbarData
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,12 +46,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.ImageShader
+import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -53,12 +69,11 @@ import com.mixtape.player.ui.theme.Tac
 import kotlinx.coroutines.delay
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
-import kotlin.math.abs
-import kotlin.math.sin
+import java.util.Random
 
-val TacButtonShape = CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp)
+val TacButtonShape = CutCornerShape(topStart = 4.dp, bottomEnd = 4.dp)
 
-/** Solid green command button. */
+/** Primary command: dark fill, bright hairline and text. */
 @Composable
 fun TacButton(
     onClick: () -> Unit,
@@ -71,18 +86,19 @@ fun TacButton(
         modifier = modifier,
         enabled = enabled,
         shape = TacButtonShape,
+        border = BorderStroke(1.dp, if (enabled) Tac.Bright.copy(alpha = 0.7f) else Tac.GreenDim),
         colors = ButtonDefaults.buttonColors(
-            containerColor = Tac.Green,
-            contentColor = Tac.Black,
-            disabledContainerColor = Tac.GreenFaint,
+            containerColor = Color(0xFF0B1F10),
+            contentColor = Tac.Bright,
+            disabledContainerColor = Tac.Black,
             disabledContentColor = Tac.GreenDim,
         ),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
         content = content,
     )
 }
 
-/** Outlined secondary button. */
+/** Secondary command: hairline only. */
 @Composable
 fun TacOutlinedButton(
     onClick: () -> Unit,
@@ -95,14 +111,14 @@ fun TacOutlinedButton(
         modifier = modifier,
         enabled = enabled,
         shape = TacButtonShape,
-        border = BorderStroke(1.dp, if (enabled) Tac.Green else Tac.GreenDim),
+        border = BorderStroke(1.dp, if (enabled) Tac.GreenDim else Tac.GreenFaint),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = Tac.Green, disabledContentColor = Tac.GreenDim),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
         content = content,
     )
 }
 
-/** Bordered panel with an inverted title tab, e.g. ▌PLAYBACK. */
+/** A section: small label, a hairline, then content. No box around it. */
 @Composable
 fun TacPanel(
     title: String,
@@ -110,27 +126,10 @@ fun TacPanel(
     trailing: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(
-        modifier
-            .fillMaxWidth()
-            .border(1.dp, Tac.GreenFaint, MaterialTheme.shapes.medium)
-            .background(Tac.Panel, MaterialTheme.shapes.medium)
-    ) {
-        Row(
-            Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                Modifier
-                    .size(width = 3.dp, height = 12.dp)
-                    .background(Tac.Green)
-            )
-            Text(
-                title.uppercase(),
-                color = Tac.Green,
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.padding(start = 8.dp, end = 10.dp),
-            )
+    Column(modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title.uppercase(), style = MaterialTheme.typography.labelMedium, color = Tac.GreenMid)
+            Spacer(Modifier.width(12.dp))
             Box(
                 Modifier
                     .weight(1f)
@@ -138,35 +137,24 @@ fun TacPanel(
                     .background(Tac.GreenFaint)
             )
             if (trailing != null) {
-                Text(
-                    " $trailing ",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Tac.GreenMid,
-                    modifier = Modifier.padding(end = 6.dp),
-                )
+                Spacer(Modifier.width(12.dp))
+                Text(trailing, style = MaterialTheme.typography.labelSmall, color = Tac.GreenDim)
             }
         }
-        Column(
-            Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            content = content,
-        )
+        Spacer(Modifier.height(14.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
     }
 }
 
-/** Section label like "// ARTISTS ───────". */
+/** List section label: "ARTISTS  12 ─────". */
 @Composable
 fun TacLabel(text: String, modifier: Modifier = Modifier, count: Int? = null) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            "// ${text.uppercase()}",
-            style = MaterialTheme.typography.labelLarge,
-            color = Tac.Green,
-        )
+        Text(text.uppercase(), style = MaterialTheme.typography.labelMedium, color = Tac.GreenMid)
         if (count != null) {
-            Text(" [$count]", style = MaterialTheme.typography.labelMedium, color = Tac.GreenMid)
+            Text("  $count", style = MaterialTheme.typography.labelMedium, color = Tac.GreenDim)
         }
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(12.dp))
         Box(
             Modifier
                 .weight(1f)
@@ -176,31 +164,50 @@ fun TacLabel(text: String, modifier: Modifier = Modifier, count: Int? = null) {
     }
 }
 
-/** CRT scanlines drawn over everything (purely visual; touches pass through). */
-fun Modifier.scanlines(enabled: Boolean): Modifier = if (!enabled) this else drawWithContent {
-    drawContent()
-    val step = 3.dp.toPx()
-    var y = 0f
-    val line = Color(0x16000000)
-    while (y < size.height) {
-        drawLine(line, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
-        y += step
+/** Static film grain, generated once and tiled. */
+private val grain: ImageBitmap by lazy {
+    val size = 192
+    val rnd = Random(1977)
+    val px = IntArray(size * size) {
+        val v = if (rnd.nextBoolean()) 255 else 0
+        val a = rnd.nextInt(26)
+        (a shl 24) or (v shl 16) or (v shl 8) or v
     }
-    // Soft darkening at the edges, like a tube screen.
-    drawRect(
-        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-            0f to Color(0x33000000), 0.08f to Color.Transparent, 0.92f to Color.Transparent, 1f to Color(0x33000000),
-        ),
-    )
+    Bitmap.createBitmap(px, size, size, Bitmap.Config.ARGB_8888).asImageBitmap()
 }
 
-/** Targeting-style corner brackets around something (album art, the player). */
-fun Modifier.cornerBrackets(color: Color = Tac.Green, length: Dp = 14.dp, inset: Dp = 0.dp): Modifier =
-    drawWithContent {
+/**
+ * Screen texture drawn over everything: fine grain, faint scanlines and a dark vignette.
+ * Purely visual; touches pass through.
+ */
+fun Modifier.scanlines(enabled: Boolean): Modifier = if (!enabled) this else drawWithCache {
+    val grainBrush = ShaderBrush(ImageShader(grain, TileMode.Repeated, TileMode.Repeated))
+    val vignette = Brush.radialGradient(
+        0.55f to Color.Transparent,
+        1f to Color(0x8C000000),
+        center = Offset(size.width / 2, size.height / 2),
+        radius = maxOf(size.width, size.height) * 0.75f,
+    )
+    val step = 3.dp.toPx()
+    val line = Color(0x0F000000)
+    onDrawWithContent {
         drawContent()
+        drawRect(grainBrush, alpha = 0.55f)
+        var y = 0f
+        while (y < size.height) {
+            drawLine(line, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
+            y += step
+        }
+        drawRect(vignette)
+    }
+}
+
+/** Thin targeting brackets around something (album art, the visualizer). */
+fun Modifier.cornerBrackets(color: Color = Tac.GreenDim, length: Dp = 10.dp, inset: Dp = 0.dp): Modifier =
+    drawBehind {
         val l = length.toPx()
         val i = inset.toPx()
-        val w = 2.dp.toPx()
+        val w = 1.dp.toPx()
         val r = size.width - i
         val b = size.height - i
         fun seg(x1: Float, y1: Float, x2: Float, y2: Float) =
@@ -211,7 +218,7 @@ fun Modifier.cornerBrackets(color: Color = Tac.Green, length: Dp = 14.dp, inset:
         seg(r, b, r - l, b); seg(r, b, r, b - l)
     }
 
-/** Top status strip: unit name with a blinking cursor, status text and a live clock. */
+/** Top status strip: wordmark with a slow blinking cursor, status, and a clock. */
 @Composable
 fun TacHeader(status: String, modifier: Modifier = Modifier, alert: Boolean = false) {
     var now by remember { mutableStateOf(LocalTime.now()) }
@@ -221,30 +228,39 @@ fun TacHeader(status: String, modifier: Modifier = Modifier, alert: Boolean = fa
             delay(500)
         }
     }
-    val cursorOn = now.nano < 500_000_000
+    val cursorOn = now.second % 2 == 0
     Column(modifier.fillMaxWidth()) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+                .height(44.dp)
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "NEXUS" + if (cursorOn) "_" else " ",
-                style = MaterialTheme.typography.titleLarge.copy(letterSpacing = 4.sp),
+                "NEXUS",
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp, letterSpacing = 5.sp),
                 color = Tac.Green,
             )
+            Box(
+                Modifier
+                    .padding(start = 3.dp)
+                    .size(width = 6.dp, height = 12.dp)
+                    .background(if (cursorOn) Tac.Bright else Color.Transparent)
+            )
             Text(
-                "  // ${status.uppercase()}",
-                style = MaterialTheme.typography.labelMedium,
+                status.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
                 color = if (alert) Tac.Amber else Tac.GreenMid,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 14.dp),
             )
             Text(
-                now.format(DateTimeFormatter.ofPattern("HH:mm:ss")),
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp),
+                now.format(DateTimeFormatter.ofPattern("HH:mm")),
+                style = MaterialTheme.typography.labelMedium,
                 color = Tac.GreenMid,
             )
         }
@@ -259,7 +275,7 @@ fun TacHeader(status: String, modifier: Modifier = Modifier, alert: Boolean = fa
 
 class TacTab(val label: String, val icon: ImageVector)
 
-/** Bottom navigation: quiet cells; the active one gets a lit top edge and bright label. */
+/** Bottom navigation: quiet cells; the active one gets a lit edge and bright label. */
 @Composable
 fun TacNavBar(tabs: List<TacTab>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().background(Tac.Black)) {
@@ -275,71 +291,219 @@ fun TacNavBar(tabs: List<TacTab>, selected: Int, onSelect: (Int) -> Unit, modifi
                 Column(
                     Modifier
                         .weight(1f)
-                        .clickable { onSelect(i) }
-                        .background(if (active) Tac.Panel else Tac.Black),
+                        .clickable { onSelect(i) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Box(
                         Modifier
-                            .fillMaxWidth(0.55f)
-                            .height(2.dp)
-                            .background(if (active) Tac.Green else Color.Transparent)
+                            .width(28.dp)
+                            .height(1.dp)
+                            .background(if (active) Tac.Bright else Color.Transparent)
                     )
-                    Spacer(Modifier.height(8.dp))
-                    Icon(tab.icon, contentDescription = null, tint = if (active) Tac.Green else Tac.GreenDim, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.height(3.dp))
+                    Spacer(Modifier.height(9.dp))
+                    Icon(tab.icon, contentDescription = null, tint = if (active) Tac.Green else Tac.GreenDim, modifier = Modifier.size(19.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         tab.label.uppercase(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (active) Tac.Green else Tac.GreenMid,
+                        color = if (active) Tac.Green else Tac.GreenDim,
                         maxLines = 1,
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(9.dp))
                 }
             }
         }
     }
 }
 
-/**
- * A decorative "signal monitor": bars that move while music plays and settle when paused.
- * It's an animation, not a real audio analyzer.
- */
+/** Side navigation for landscape. */
 @Composable
-fun SignalBars(active: Boolean, modifier: Modifier = Modifier, bars: Int = 28) {
-    val transition = rememberInfiniteTransition(label = "signal")
-    val t by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(tween(400_000, easing = LinearEasing), RepeatMode.Restart),
-        label = "t",
-    )
-    Canvas(modifier) {
-        val gap = 2.dp.toPx()
-        val w = (size.width - gap * (bars - 1)) / bars
-        val cell = 3.dp.toPx()
-        for (i in 0 until bars) {
-            val level = if (!active) 0.08f else {
-                val a = sin(t * 7f + i * 0.55f) * 0.5f + 0.5f
-                val b = sin(t * 17f + i * 1.7f) * 0.5f + 0.5f
-                (0.15f + 0.85f * (a * 0.6f + b * 0.4f) * (1f - abs(i - bars / 2f) / bars)).coerceIn(0.05f, 1f)
-            }
-            val h = size.height * level
-            // Draw as stacked cells for the segmented-LED look.
-            var y = size.height
-            val x = i * (w + gap)
-            while (y > size.height - h) {
-                val top = (y - cell).coerceAtLeast(size.height - h)
-                val hot = y < size.height * 0.25f
-                drawRect(if (hot) Tac.Amber else Tac.Green, Offset(x, top), androidx.compose.ui.geometry.Size(w, y - top - 1f))
-                y -= cell + 1f
+fun TacNavRail(tabs: List<TacTab>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxHeight().background(Tac.Black)) {
+        Column(
+            Modifier
+                .width(76.dp)
+                .fillMaxHeight()
+                .padding(top = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            tabs.forEachIndexed { i, tab ->
+                val active = i == selected
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelect(i) },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        Modifier
+                            .width(1.dp)
+                            .height(40.dp)
+                            .background(if (active) Tac.Bright else Color.Transparent)
+                    )
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .padding(vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Icon(tab.icon, null, tint = if (active) Tac.Green else Tac.GreenDim, modifier = Modifier.size(19.dp))
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            tab.label.uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (active) Tac.Green else Tac.GreenDim,
+                            maxLines = 1,
+                        )
+                    }
+                }
             }
         }
-        drawLine(Tac.GreenDim, Offset(0f, size.height), Offset(size.width, size.height), 1f)
+        Box(
+            Modifier
+                .width(1.dp)
+                .fillMaxHeight()
+                .background(Tac.GreenFaint)
+        )
     }
 }
 
-/** Segmented progress meter: ▮▮▮▮▮▯▯▯ */
+/** Square on/off switch. */
+@Composable
+fun TacSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    val x by animateDpAsState(if (checked) 18.dp else 2.dp, label = "switch")
+    Box(
+        modifier
+            .size(width = 34.dp, height = 18.dp)
+            .border(1.dp, if (checked) Tac.Bright.copy(alpha = 0.6f) else Tac.GreenDim)
+            .clickable { onCheckedChange(!checked) },
+    ) {
+        Box(
+            Modifier
+                .offset(x = x, y = 3.dp)
+                .size(12.dp)
+                .background(if (checked) Tac.Bright else Tac.GreenDim)
+        )
+    }
+}
+
+/** Search line: "›" prompt, placeholder, clear button, hairline underneath. */
+@Composable
+fun TacSearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+) {
+    val focus = LocalFocusManager.current
+    Column(modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(44.dp)) {
+            Text("›", style = MaterialTheme.typography.titleLarge, color = if (value.isEmpty()) Tac.GreenDim else Tac.Bright)
+            Spacer(Modifier.width(10.dp))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                if (value.isEmpty()) {
+                    Text(placeholder, style = MaterialTheme.typography.bodyMedium, color = Tac.GreenDim, maxLines = 1)
+                }
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = Tac.Green),
+                    cursorBrush = SolidColor(Tac.Bright),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            if (value.isNotEmpty()) {
+                IconButton(onClick = { onValueChange("") }) {
+                    Icon(Icons.Rounded.Close, "Clear search", tint = Tac.GreenMid, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(if (value.isEmpty()) Tac.GreenFaint else Tac.GreenDim)
+        )
+    }
+}
+
+/** Text tabs with a thin underline on the active one; scrolls sideways if needed. */
+@Composable
+fun TacTabsRow(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 8.dp),
+    ) {
+        labels.forEachIndexed { i, label ->
+            val active = i == selected
+            Column(
+                Modifier
+                    .clickable { onSelect(i) }
+                    .padding(horizontal = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    label.uppercase(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (active) Tac.Green else Tac.GreenDim,
+                    maxLines = 1,
+                    modifier = Modifier.padding(vertical = 12.dp),
+                )
+                Box(
+                    Modifier
+                        .height(1.dp)
+                        .width(if (active) 22.dp else 0.dp)
+                        .background(Tac.Bright)
+                )
+            }
+        }
+    }
+}
+
+/** Snackbar in the house style: dark panel, hairline, amber action. */
+@Composable
+fun TacSnackbar(data: SnackbarData) {
+    Row(
+        Modifier
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .fillMaxWidth()
+            .border(1.dp, Tac.GreenDim, TacButtonShape)
+            .background(Tac.Panel, TacButtonShape)
+            .padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            data.visuals.message,
+            style = MaterialTheme.typography.bodySmall,
+            color = Tac.Green,
+            modifier = Modifier
+                .weight(1f)
+                .padding(vertical = 10.dp),
+        )
+        data.visuals.actionLabel?.let { label ->
+            Text(
+                label.uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                color = Tac.Amber,
+                modifier = Modifier
+                    .clickable { data.performAction() }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            )
+        }
+        if (data.visuals.withDismissAction) {
+            IconButton(onClick = { data.dismiss() }) {
+                Icon(Icons.Rounded.Close, "Dismiss", tint = Tac.GreenMid, modifier = Modifier.size(16.dp))
+            }
+        }
+    }
+}
+
+/** Segmented progress meter. */
 @Composable
 fun SegmentMeter(fraction: Float, modifier: Modifier = Modifier, segments: Int = 40) {
     Canvas(modifier) {
@@ -352,7 +516,7 @@ fun SegmentMeter(fraction: Float, modifier: Modifier = Modifier, segments: Int =
                 i < lit -> Tac.GreenMid
                 else -> Tac.GreenFaint
             }
-            drawRect(color, Offset(i * (w + gap), 0f), androidx.compose.ui.geometry.Size(w, size.height))
+            drawRect(color, Offset(i * (w + gap), 0f), Size(w, size.height))
         }
     }
 }

@@ -29,6 +29,25 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.CompositionLocalProvider
 import com.mixtape.player.ui.components.TacHeader
+import com.mixtape.player.ui.components.TacNavRail
+import com.mixtape.player.ui.components.TacSnackbar
+import com.mixtape.player.ui.components.SelectionState
+import com.mixtape.player.ui.components.MenuItem
+import com.mixtape.player.ui.screens.NowPlayingActions
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteForever
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.SelectAll
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.DropdownMenu
 import com.mixtape.player.ui.components.TacNavBar
 import com.mixtape.player.ui.components.TacTab
 import com.mixtape.player.ui.components.scanlines
@@ -122,7 +141,11 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
     val stack = remember { mutableStateListOf<Detail>() }
     var nowPlayingOpen by rememberSaveable { mutableStateOf(false) }
     var addToPlaylist by remember { mutableStateOf<List<Song>?>(null) }
-    var confirmDelete by remember { mutableStateOf<Song?>(null) }
+    var confirmDelete by remember { mutableStateOf<List<Song>?>(null) }
+    val selection = remember { SelectionState() }
+    val boostDb by vm.boostDb.collectAsStateWithLifecycle()
+    val hiRes by vm.hiRes.collectAsStateWithLifecycle()
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     var editing by remember { mutableStateOf<List<Song>?>(null) }
     var longMessage by remember { mutableStateOf<String?>(null) }
     val snackbar = remember { SnackbarHostState() }
@@ -147,8 +170,12 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
         }
     }
 
-    BackHandler(enabled = nowPlayingOpen || stack.isNotEmpty()) {
-        if (nowPlayingOpen) nowPlayingOpen = false else stack.removeAt(stack.lastIndex)
+    BackHandler(enabled = selection.active || nowPlayingOpen || stack.isNotEmpty()) {
+        when {
+            nowPlayingOpen -> nowPlayingOpen = false
+            selection.active -> selection.clear()
+            else -> stack.removeAt(stack.lastIndex)
+        }
     }
 
     val songActions = remember(vm) {
@@ -158,7 +185,8 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
             addToPlaylist = { addToPlaylist = listOf(it) },
             hide = vm::hideSong,
             edit = { editing = listOf(it) },
-            delete = { confirmDelete = it },
+            delete = { confirmDelete = listOf(it) },
+            selection = selection,
         )
     }
     val play: (List<Song>, Int) -> Unit = { songs, i -> vm.play(songs, i); nowPlayingOpen = false }
@@ -173,6 +201,11 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
         scanning -> "SCANNING STORAGE…"
         else -> "${library.songs.size} TRACKS INDEXED"
     }
+    val selectTab: (Int) -> Unit = { i ->
+        tab = Tab.entries[i]
+        stack.clear()
+        selection.clear()
+    }
     val navTabs = remember {
         listOf(
             TacTab(Tab.Library.label, Icons.Rounded.LibraryMusic),
@@ -183,19 +216,39 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
     }
 
     CompositionLocalProvider(LocalTacOptions provides TacOptions(tintArt = tintArt, scanlines = scanlines)) {
-    Box(Modifier.fillMaxSize().background(Tac.Black).scanlines(scanlines)) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Tac.Black)
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+            .scanlines(scanlines)
+    ) {
         Scaffold(
             containerColor = Tac.Black,
-            snackbarHost = { SnackbarHost(snackbar) },
-            topBar = { TacHeader(headerStatus, Modifier.statusBarsPadding(), alert = busy != null) },
+            snackbarHost = { SnackbarHost(snackbar) { TacSnackbar(it) } },
+            topBar = {
+                if (selection.active) {
+                    SelectionBar(
+                        count = selection.count,
+                        modifier = Modifier.statusBarsPadding(),
+                        onClose = selection::clear,
+                        onSelectAll = { selection.selectAll() },
+                        onEdit = { editing = selection.songs },
+                        onAddToPlaylist = { addToPlaylist = selection.songs },
+                        onPlayNext = { vm.playNextAll(selection.songs); selection.clear() },
+                        onQueue = { vm.queueAll(selection.songs); selection.clear() },
+                        onHide = { vm.hideSongs(selection.songs); selection.clear() },
+                        onDelete = { confirmDelete = selection.songs },
+                    )
+                } else {
+                    TacHeader(headerStatus, Modifier.statusBarsPadding(), alert = busy != null)
+                }
+            },
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
                 Column(Modifier.navigationBarsPadding()) {
                     MiniPlayer(playback, onOpen = { nowPlayingOpen = true }, onTogglePlay = vm::togglePlay, onNext = vm::next)
-                    TacNavBar(navTabs, selected = tab.ordinal, onSelect = { i ->
-                        tab = Tab.entries[i]
-                        stack.clear()
-                    })
+                    if (!landscape) TacNavBar(navTabs, selected = tab.ordinal, onSelect = selectTab)
                 }
             },
         ) { padding ->
@@ -211,6 +264,8 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                         trackColor = Tac.GreenFaint,
                     )
                 }
+                Row(Modifier.weight(1f)) {
+                if (landscape) TacNavRail(navTabs, selected = tab.ordinal, onSelect = selectTab)
                 Box(Modifier.weight(1f)) {
                     when (val detail = stack.lastOrNull()) {
                         null -> when (tab) {
@@ -234,7 +289,10 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                             )
                             Tab.Settings -> SettingsScreen(
                                 library, crossfadeMs, smartShuffle, tintArt, scanlines, accounts, hiddenIds.size, busy != null,
+                                boostDb, hiRes,
                                 SettingsActions(
+                                    onBoostDb = vm::setBoostDb,
+                                    onHiRes = vm::setHiRes,
                                     onImportFile = platform.pickLikesFile,
                                     onPasteList = vm::importPastedList,
                                     onUnhideAll = vm::unhideAll,
@@ -307,6 +365,7 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                         } ?: Gone(back)
                     }
                 }
+                }
             }
         }
 
@@ -315,21 +374,28 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
             enter = slideInVertically { it },
             exit = slideOutVertically { it },
         ) {
-            Surface(Modifier.fillMaxSize()) {
+            Surface(Modifier.fillMaxSize().scanlines(scanlines), color = Tac.Black) {
                 NowPlayingScreen(
                     state = playback,
                     analyzer = vm.engine.analyzer,
                     crossfadeMs = crossfadeMs,
-                    onClose = { nowPlayingOpen = false },
-                    onTogglePlay = vm::togglePlay,
-                    onNext = vm::next,
-                    onPrevious = vm::previous,
-                    onSeek = vm::seekTo,
-                    onToggleShuffle = vm::toggleShuffle,
-                    onCycleRepeat = vm::cycleRepeat,
-                    onCrossfadeSeconds = vm::setCrossfadeSeconds,
-                    onJumpTo = vm::jumpTo,
-                    onRemoveFromQueue = vm::removeFromQueue,
+                    boostDb = boostDb,
+                    actions = remember(vm) {
+                        NowPlayingActions(
+                            onClose = { nowPlayingOpen = false },
+                            onTogglePlay = vm::togglePlay,
+                            onNext = vm::next,
+                            onPrevious = vm::previous,
+                            onSeek = vm::seekTo,
+                            onToggleShuffle = vm::toggleShuffle,
+                            onCycleRepeat = vm::cycleRepeat,
+                            onCrossfadeSeconds = vm::setCrossfadeSeconds,
+                            onBoostDb = vm::setBoostDb,
+                            onJumpTo = vm::jumpTo,
+                            onRemoveFromQueue = vm::removeFromQueue,
+                            onMoveInQueue = vm::moveInQueue,
+                        )
+                    },
                 )
             }
         }
@@ -341,7 +407,11 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
         EditInfoDialog(
             songs = songs,
             onDismiss = { editing = null },
-            onSave = { edit, toFile -> editing = null; vm.saveSongInfo(songs, edit, toFile) },
+            onSave = { edit, toFile, renumber ->
+                editing = null
+                selection.clear()
+                vm.saveSongInfo(songs, edit, toFile, renumber)
+            },
         )
     }
 
@@ -353,15 +423,31 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
         )
     }
 
-    confirmDelete?.let { song ->
+    confirmDelete?.let { songs ->
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
-            title = { Text("Delete “${song.title}”?") },
-            text = { Text("This permanently deletes the music file from your phone. To just stop seeing it, use “Hide from library” instead.") },
-            confirmButton = {
-                TextButton(onClick = { confirmDelete = null; platform.deleteSongs(listOf(song)) }) { Text("Delete") }
+            containerColor = Tac.Panel,
+            title = {
+                Text(
+                    if (songs.size == 1) "Delete “${songs[0].title}”?" else "Delete ${songs.size} songs?",
+                    style = MaterialTheme.typography.titleLarge,
+                )
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("Cancel") } },
+            text = {
+                Text(
+                    "This permanently deletes the music files from your phone. To just stop seeing them, use Hide instead.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Tac.GreenMid,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = null
+                    selection.clear()
+                    platform.deleteSongs(songs)
+                }) { Text("DELETE", color = Tac.Amber) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("CANCEL", color = Tac.GreenMid) } },
         )
     }
 
@@ -369,9 +455,50 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
         AddToPlaylistDialog(
             playlists = playlists,
             onDismiss = { addToPlaylist = null },
-            onPick = { p -> vm.addToPlaylist(p.id, songs); addToPlaylist = null },
-            onCreate = { name -> vm.createPlaylist(name, songs); addToPlaylist = null },
+            onPick = { p -> vm.addToPlaylist(p.id, songs); addToPlaylist = null; selection.clear() },
+            onCreate = { name -> vm.createPlaylist(name, songs); addToPlaylist = null; selection.clear() },
         )
+    }
+}
+
+/** Replaces the header while songs are selected. */
+@Composable
+private fun SelectionBar(
+    count: Int,
+    modifier: Modifier,
+    onClose: () -> Unit,
+    onSelectAll: () -> Unit,
+    onEdit: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    onPlayNext: () -> Unit,
+    onQueue: () -> Unit,
+    onHide: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    Column(modifier.fillMaxWidth().background(Tac.Panel)) {
+        Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Cancel selection", tint = Tac.GreenMid) }
+            Text(
+                "$count SELECTED",
+                style = MaterialTheme.typography.labelLarge,
+                color = Tac.Bright,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = onSelectAll) { Icon(Icons.Rounded.SelectAll, "Select all", tint = Tac.Green) }
+            IconButton(onClick = onEdit) { Icon(Icons.Rounded.Edit, "Edit info", tint = Tac.Green) }
+            IconButton(onClick = onAddToPlaylist) { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, "Add to playlist", tint = Tac.Green) }
+            Box {
+                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "More actions", tint = Tac.Green) }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    MenuItem("Play next", Icons.Rounded.SkipNext) { menu = false; onPlayNext() }
+                    MenuItem("Add to queue", Icons.AutoMirrored.Rounded.QueueMusic) { menu = false; onQueue() }
+                    MenuItem("Hide from library", Icons.Rounded.VisibilityOff) { menu = false; onHide() }
+                    MenuItem("Delete from phone", Icons.Rounded.DeleteForever) { menu = false; onDelete() }
+                }
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Tac.Bright.copy(alpha = 0.35f)))
     }
 }
 

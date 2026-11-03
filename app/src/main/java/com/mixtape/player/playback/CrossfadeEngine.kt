@@ -11,6 +11,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import android.media.audiofx.LoudnessEnhancer
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
@@ -79,6 +80,12 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
     private var shuffle = false
     private var repeat = RepeatMode.OFF
 
+    /** Short volume ramps on pause/resume so playback never starts or stops with a click. */
+    private var rampJob: Job? = null
+
+    /** One limiter-backed booster per player (each player has its own audio session). */
+    private val boosters: List<LoudnessEnhancer?>
+
     private var fadeJob: Job? = null
     private var tickJob: Job? = null
     private var duck = 1f
@@ -95,6 +102,42 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
 
     init {
         players.forEach { p -> p.addListener(listenerFor(p)) }
+        boosters = players.map { p ->
+            runCatching { LoudnessEnhancer(p.audioSessionId) }
+                .onFailure { Log.w(TAG, "Volume booster unavailable", it) }
+                .getOrNull()
+        }
+        scope.launch { settings.boostDb.collect(::applyBoost) }
+    }
+
+    private fun applyBoost(db: Int) {
+        boosters.forEach { b ->
+            runCatching {
+                b?.setTargetGain(db * 100) // millibels
+                b?.enabled = db > 0
+            }
+        }
+    }
+
+    /** Ramps the audible player's volume, then runs [then]. */
+    private fun rampTo(target: Float, ms: Long, then: () -> Unit = {}) {
+        rampJob?.cancel()
+        val p = active
+        val from = p.volume
+        rampJob = scope.launch {
+            val steps = (ms / RAMP_STEP_MS).toInt().coerceAtLeast(1)
+            for (i in 1..steps) {
+                p.volume = from + (target - from) * i / steps
+                delay(RAMP_STEP_MS)
+            }
+            rampJob = null
+            then()
+        }
+    }
+
+    private fun cancelRamp() {
+        rampJob?.cancel()
+        rampJob = null
     }
 
     private fun createPlayer(): ExoPlayer =
@@ -111,7 +154,7 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
             .build()
 
     /** Routes a copy of the decoded audio through [analyzer] before it reaches the speaker. */
-    private fun renderersWithAnalyzer() = object : DefaultRenderersFactory(appContext) {
+    private fun renderersWithAnalyzer(): DefaultRenderersFactory = object : DefaultRenderersFactory(appContext) {
         override fun buildAudioSink(
             context: Context,
             enableFloatOutput: Boolean,
@@ -121,7 +164,7 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
             .setEnableFloatOutput(enableFloatOutput)
             .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
             .build()
-    }
+    }.setEnableAudioFloatOutput(settings.hiRes.value)
 
     private fun listenerFor(p: ExoPlayer) = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -177,13 +220,28 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
             Player.STATE_ENDED -> active.seekTo(0)
             else -> Unit
         }
+        val ramp = fadeJob == null
+        if (ramp) {
+            cancelRamp()
+            if (!active.playWhenReady) active.volume = 0f
+        }
         active.play()
         if (fadeJob != null) standby.play()
+        if (ramp) rampTo(duck, RESUME_RAMP_MS)
         ensureTicker()
         publish()
     }
 
     fun pause() {
+        if (fadeJob == null && active.isPlaying) {
+            rampTo(0f, PAUSE_RAMP_MS) {
+                active.pause()
+                standby.pause()
+                publish()
+            }
+            return
+        }
+        cancelRamp()
         active.pause()
         standby.pause()
         publish()
@@ -268,6 +326,16 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
         publish()
     }
 
+    /** Moves a song within Up next (the playing song and earlier ones stay put). */
+    fun moveInQueue(from: Int, to: Int) {
+        if (from !in queue.indices || to !in queue.indices || from == to) return
+        if (from <= index || to <= index) return
+        queue = queue.toMutableList().apply { add(to, removeAt(from)) }
+        if (!shuffle) original = queue
+        resetStandby()
+        publish()
+    }
+
     fun removeFromQueue(position: Int) {
         if (position !in queue.indices || position == index) return
         val removed = queue[position]
@@ -327,6 +395,7 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
     // ---- loading & crossfading -------------------------------------------------------------
 
     private fun loadIntoActive(position: Int, play: Boolean) {
+        cancelRamp()
         cancelFade()
         resetStandby()
         index = position
@@ -358,6 +427,7 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
     /** Swaps players and blends them over [fadeMs], driven by the new song's position. */
     private fun crossfade(fadeMs: Long) {
         if (standbyIndex < 0) return
+        cancelRamp()
         val outgoing = active
         val incoming = standby
         activeSlot = 1 - activeSlot
@@ -528,6 +598,9 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
         private const val MIN_FADE_MS = 400L
         private const val SKIP_FADE_MS = 1_000
         private const val DUCK_VOLUME = 0.25f
+        private const val RAMP_STEP_MS = 10L
+        private const val PAUSE_RAMP_MS = 140L
+        private const val RESUME_RAMP_MS = 180L
     }
 }
 

@@ -1,8 +1,8 @@
 package com.mixtape.player.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,13 +21,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mixtape.player.playback.PlaybackState
 import com.mixtape.player.ui.components.AlbumArt
-import com.mixtape.player.ui.components.SegmentMeter
-import com.mixtape.player.ui.components.TacButtonShape
 import com.mixtape.player.ui.components.formatTime
 import com.mixtape.player.ui.theme.Tac
 
@@ -38,30 +35,41 @@ fun MiniPlayer(state: PlaybackState, onOpen: () -> Unit, onTogglePlay: () -> Uni
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .border(1.dp, Tac.GreenDim, TacButtonShape)
-            .background(Tac.Panel, TacButtonShape)
+            .background(Tac.Panel)
             .clickable(onClick = onOpen)
     ) {
+        // Progress as a hairline along the top edge
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(Tac.GreenFaint)
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth(progress)
+                    .height(1.dp)
+                    .background(Tac.Bright)
+            )
+        }
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(start = 8.dp, top = 6.dp, bottom = 2.dp),
+                .padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AlbumArt(song, Modifier.size(40.dp), sizePx = 120, shape = MaterialTheme.shapes.extraSmall)
-            Spacer(Modifier.size(10.dp))
+            AlbumArt(song, Modifier.size(38.dp), sizePx = 114, shape = MaterialTheme.shapes.extraSmall)
+            Spacer(Modifier.size(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    (if (state.isPlaying) "▶ " else "‖ ") + song.title.uppercase(),
+                    song.title,
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
                     color = Tac.Green,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    "${song.artist} · ${formatTime(state.positionMs)}/${formatTime(state.durationMs)}",
+                    "${song.artist}  ·  ${formatTime(state.positionMs)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = Tac.GreenMid,
                     maxLines = 1,
@@ -75,15 +83,7 @@ fun MiniPlayer(state: PlaybackState, onOpen: () -> Unit, onTogglePlay: () -> Uni
                     tint = Tac.Green,
                 )
             }
-            IconButton(onClick = onNext) { Icon(Icons.Rounded.SkipNext, "Next", tint = Tac.Green) }
+            IconButton(onClick = onNext) { Icon(Icons.Rounded.SkipNext, "Next", tint = Tac.GreenMid) }
         }
-        SegmentMeter(
-            progress,
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp)
-                .height(4.dp),
-            segments = 48,
-        )
     }
 }

@@ -11,33 +11,42 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import com.mixtape.player.R
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mixtape.player.R
 
 /**
- * "Tactical terminal" look: phosphor green on black, one amber accent for warnings,
- * monospace everything, chamfered corners instead of rounded ones.
+ * Dark terminal look: muted phosphor green on near-black, with the bright green kept for
+ * the few things that are "live" (what's playing, the active tab, focus). One dull amber
+ * for warnings. Hairlines instead of boxes.
  */
 object Tac {
-    val Black = Color(0xFF000000)
-    val Panel = Color(0xFF050C07)        // panels sit just above pure black
-    val PanelHi = Color(0xFF0A170C)      // pressed / selected rows
-    val Green = Color(0xFF4DFF7C)        // primary phosphor
-    val GreenMid = Color(0xFF2FA352)     // secondary text
-    val GreenDim = Color(0xFF16572A)     // borders, inactive
-    val GreenFaint = Color(0xFF0B2E14)   // tracks, dividers
-    val Amber = Color(0xFFFFB627)        // alerts, "live" indicators
-    val Red = Color(0xFFFF4D4D)
+    val Black = Color(0xFF020302)      // background
+    val Panel = Color(0xFF070A07)      // raised surfaces (menus, dialogs, mini player)
+    val PanelHi = Color(0xFF0D140E)    // selected / pressed rows
+    val Bright = Color(0xFF3DFF6E)     // live accents only
+    val Green = Color(0xFF74E08E)      // primary text
+    val GreenMid = Color(0xFF3F7D50)   // secondary text, icons
+    val GreenDim = Color(0xFF1F3626)   // borders, inactive controls
+    val GreenFaint = Color(0xFF111B13) // hairlines, tracks
+    val Amber = Color(0xFFD9A441)
+    val Red = Color(0xFFE05A4F)
 
-    /** Body text: a clean, squared-off digital terminal face. */
+    /** Body text: IBM Plex Mono, a clean, serious terminal face. */
+    val Body = FontFamily(
+        Font(R.font.plex_mono_regular, FontWeight.Normal),
+        Font(R.font.plex_mono_medium, FontWeight.Medium),
+        Font(R.font.plex_mono_medium, FontWeight.SemiBold),
+        Font(R.font.plex_mono_medium, FontWeight.Bold),
+    )
+
+    /** Labels, titles and readouts: Share Tech Mono, a squared-off digital face. */
     val Mono = FontFamily(Font(R.font.share_tech_mono))
-    /** Big readouts (clock, titles, timers): a CRT pixel face. */
-    val Display = FontFamily(Font(R.font.vt323))
 }
 
 private val TacColors = darkColorScheme(
-    primary = Tac.Green,
+    primary = Tac.Bright,
     onPrimary = Tac.Black,
     primaryContainer = Tac.GreenFaint,
     onPrimaryContainer = Tac.Green,
@@ -56,54 +65,55 @@ private val TacColors = darkColorScheme(
     surfaceContainerLowest = Tac.Black,
     surfaceContainerLow = Tac.Panel,
     surfaceContainer = Tac.Panel,
-    surfaceContainerHigh = Tac.PanelHi,
+    surfaceContainerHigh = Tac.Panel,
     surfaceContainerHighest = Tac.PanelHi,
     surfaceTint = Color.Transparent,
-    inverseSurface = Tac.Green,
-    inverseOnSurface = Tac.Black,
+    inverseSurface = Tac.Panel,
+    inverseOnSurface = Tac.Green,
+    inversePrimary = Tac.Amber,
     outline = Tac.GreenDim,
     outlineVariant = Tac.GreenFaint,
     error = Tac.Red,
     onError = Tac.Black,
-    scrim = Color(0xCC000000),
+    scrim = Color(0xD9000000),
 )
 
-private fun mono(style: TextStyle, spacing: Float = 0.5f) =
-    style.copy(fontFamily = Tac.Mono, letterSpacing = spacing.sp)
+private fun label(size: Int, spacing: Float) =
+    TextStyle(fontFamily = Tac.Mono, fontSize = size.sp, lineHeight = (size + 4).sp, letterSpacing = spacing.sp)
 
-/** The pixel font runs small, so it's set larger to match the body text's weight on screen. */
-private fun display(size: Int, spacing: Float = 1f) =
-    TextStyle(fontFamily = Tac.Display, fontSize = size.sp, lineHeight = (size * 1.05).sp, letterSpacing = spacing.sp)
+private fun title(size: Int, spacing: Float = 0.4f) =
+    TextStyle(fontFamily = Tac.Mono, fontSize = size.sp, lineHeight = (size * 1.2).sp, letterSpacing = spacing.sp)
 
-private val base = Typography()
+private fun body(size: Int, line: Int, spacing: Float = 0f) =
+    TextStyle(fontFamily = Tac.Body, fontSize = size.sp, lineHeight = line.sp, letterSpacing = spacing.sp)
 
 private val TacType = Typography(
-    displayLarge = display(64),
-    displayMedium = display(52),
-    displaySmall = display(42),
-    headlineLarge = display(40),
-    headlineMedium = display(34),
-    headlineSmall = display(30, 1.5f),
-    titleLarge = display(28, 1.5f),
-    titleMedium = mono(base.titleMedium.copy(fontSize = 15.sp), 0.6f),
-    titleSmall = mono(base.titleSmall.copy(fontSize = 12.sp), 2f),
-    bodyLarge = mono(base.bodyLarge.copy(fontSize = 15.sp, lineHeight = 21.sp), 0.3f),
-    bodyMedium = mono(base.bodyMedium.copy(fontSize = 13.sp, lineHeight = 18.sp), 0.3f),
-    bodySmall = mono(base.bodySmall.copy(fontSize = 11.sp, lineHeight = 15.sp), 0.4f),
-    labelLarge = mono(base.labelLarge.copy(fontSize = 12.sp), 2f),
-    labelMedium = mono(base.labelMedium.copy(fontSize = 11.sp), 1.6f),
-    labelSmall = mono(base.labelSmall.copy(fontSize = 10.sp), 1.6f),
+    displayLarge = title(48),
+    displayMedium = title(40),
+    displaySmall = title(34),
+    headlineLarge = title(30),
+    headlineMedium = title(26),
+    headlineSmall = title(23),
+    titleLarge = title(19),
+    titleMedium = body(15, 21),
+    titleSmall = label(12, 1.6f),
+    bodyLarge = body(14, 20),
+    bodyMedium = body(13, 18),
+    bodySmall = body(11, 15, 0.1f),
+    labelLarge = label(12, 1.8f),
+    labelMedium = label(11, 1.6f),
+    labelSmall = label(10, 1.4f),
 )
 
 private val TacShapes = Shapes(
-    extraSmall = CutCornerShape(2.dp),
-    small = CutCornerShape(3.dp),
-    medium = CutCornerShape(5.dp),
-    large = CutCornerShape(6.dp),
-    extraLarge = CutCornerShape(6.dp),
+    extraSmall = CutCornerShape(1.dp),
+    small = CutCornerShape(2.dp),
+    medium = CutCornerShape(3.dp),
+    large = CutCornerShape(4.dp),
+    extraLarge = CutCornerShape(4.dp),
 )
 
-/** Settings that change how the theme draws (cover tint, scanlines). */
+/** Settings that change how the theme draws (cover tint, grain). */
 data class TacOptions(val tintArt: Boolean = true, val scanlines: Boolean = true)
 
 val LocalTacOptions = staticCompositionLocalOf { TacOptions() }
