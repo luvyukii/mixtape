@@ -33,6 +33,9 @@ class MixtapeApp : Application() {
     lateinit var metadata: MetadataStore
         private set
 
+    /** The startup animation plays once per launch, not on every screen rotation. */
+    var bootShown = false
+
     override fun onCreate() {
         super.onCreate()
         settings = Settings(this)

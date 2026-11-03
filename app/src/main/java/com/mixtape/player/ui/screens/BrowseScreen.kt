@@ -59,6 +59,7 @@ import com.mixtape.player.data.ImportManager
 import com.mixtape.player.data.PlaylistSource
 import com.mixtape.player.ui.theme.Tac
 import com.mixtape.player.ui.components.TacTabsRow
+import com.mixtape.player.ui.components.PixelReveal
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
@@ -218,6 +219,7 @@ fun BrowseScreen(
             }
         }
 
+        PixelReveal(state.site, Modifier.fillMaxSize()) {
         AndroidView(
             factory = { ctx -> android.widget.FrameLayout(ctx) },
             modifier = Modifier.fillMaxSize(),
@@ -233,6 +235,7 @@ fun BrowseScreen(
                 state.url = view.url.orEmpty()
             },
         )
+        }
     }
 }
 

@@ -49,6 +49,10 @@ class Settings(context: Context) {
     val hiRes: StateFlow<Boolean> = _hiRes.asStateFlow()
     fun setHiRes(on: Boolean) { prefs.edit { putBoolean(K_HIRES, on) }; _hiRes.value = on }
 
+    private val _bootAnim = MutableStateFlow(prefs.getBoolean(K_BOOT, true))
+    val bootAnim: StateFlow<Boolean> = _bootAnim.asStateFlow()
+    fun setBootAnim(on: Boolean) { prefs.edit { putBoolean(K_BOOT, on) }; _bootAnim.value = on }
+
     private val _smartShuffle = MutableStateFlow(prefs.getBoolean(K_SMART_SHUFFLE, true))
     val smartShuffle: StateFlow<Boolean> = _smartShuffle.asStateFlow()
 
@@ -146,6 +150,7 @@ class Settings(context: Context) {
         const val MAX_CROSSFADE_MS = 12_000
         const val MAX_BOOST_DB = 10
         private const val K_BOOST = "audio.boostDb"
+        private const val K_BOOT = "ui.bootAnim"
         private const val K_HIRES = "audio.hiRes"
 
         private const val K_CROSSFADE = "crossfade_ms"

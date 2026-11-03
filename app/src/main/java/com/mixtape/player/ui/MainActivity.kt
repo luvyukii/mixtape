@@ -18,6 +18,14 @@ import kotlinx.coroutines.launch
 import com.mixtape.player.data.Song
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -100,7 +108,18 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             MixtapeTheme {
-                MixtapeRoot(vm, platform)
+                val app = application as com.mixtape.player.MixtapeApp
+                val library by vm.library.collectAsStateWithLifecycle()
+                var boot by remember { mutableStateOf(!app.bootShown && vm.bootAnim.value) }
+                Box(Modifier.fillMaxSize()) {
+                    MixtapeRoot(vm, platform)
+                    if (boot) {
+                        BootScreen(trackCount = library.songs.size) {
+                            boot = false
+                            app.bootShown = true
+                        }
+                    }
+                }
             }
         }
     }

@@ -51,6 +51,7 @@ class SettingsActions(
     val onCrossfadeSeconds: (Int) -> Unit,
     val onSmartShuffle: (Boolean) -> Unit,
     val onTintArt: (Boolean) -> Unit,
+    val onBootAnim: (Boolean) -> Unit,
     val onScanlines: (Boolean) -> Unit,
     val onAddFiles: () -> Unit,
     val onAddFolder: () -> Unit,
@@ -80,6 +81,7 @@ fun SettingsScreen(
     busy: Boolean,
     boostDb: Int,
     hiRes: Boolean,
+    bootAnim: Boolean,
     actions: SettingsActions,
 ) {
     var pasting by remember { mutableStateOf(false) }
@@ -112,6 +114,7 @@ fun SettingsScreen(
 
         Section("Display") {
             SwitchRow("Green cover art", "Show album covers in phosphor green", tintArt, actions.onTintArt)
+            SwitchRow("Startup animation", "Boot sequence when NEXUS opens (tap to skip it)", bootAnim, actions.onBootAnim)
             SwitchRow("Screen texture", "Fine grain, faint scanlines and a dark vignette", scanlines, actions.onScanlines)
         }
 

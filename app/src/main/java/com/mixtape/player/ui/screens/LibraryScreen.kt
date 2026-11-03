@@ -63,6 +63,7 @@ import com.mixtape.player.ui.components.SongActions
 import com.mixtape.player.ui.components.SongRow
 import com.mixtape.player.ui.components.TacSearchField
 import com.mixtape.player.ui.components.TacTabsRow
+import com.mixtape.player.ui.components.PixelReveal
 import com.mixtape.player.ui.theme.Tac
 import androidx.compose.runtime.SideEffect
 
@@ -103,12 +104,14 @@ fun LibraryScreen(
                     onSelect = { tab = it },
                     modifier = Modifier.padding(top = 4.dp),
                 )
+                PixelReveal(tab, Modifier.weight(1f)) {
                 when (LibraryTab.entries[tab]) {
                     LibraryTab.Songs -> SongsTab(library.songs, currentSongId, actions, onPlay, onShuffle)
                     LibraryTab.Albums -> AlbumsGrid(library.albums) { onOpen(Detail.AlbumD(it.id)) }
                     LibraryTab.Artists -> GroupList(library.artists, circleArt = true) { onOpen(Detail.ArtistD(it.key)) }
                     LibraryTab.Genres -> GroupList(library.genres) { onOpen(Detail.GenreD(it.key)) }
                     LibraryTab.Folders -> GroupList(library.folders, folderIcon = true) { onOpen(Detail.FolderD(it.key)) }
+                }
                 }
             }
         }

@@ -29,6 +29,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.CompositionLocalProvider
 import com.mixtape.player.ui.components.TacHeader
+import com.mixtape.player.ui.components.pixelCover
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import com.mixtape.player.ui.components.TacNavRail
 import com.mixtape.player.ui.components.TacSnackbar
 import com.mixtape.player.ui.components.SelectionState
@@ -145,6 +149,7 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
     val selection = remember { SelectionState() }
     val boostDb by vm.boostDb.collectAsStateWithLifecycle()
     val hiRes by vm.hiRes.collectAsStateWithLifecycle()
+    val bootAnim by vm.bootAnim.collectAsStateWithLifecycle()
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     var editing by remember { mutableStateOf<List<Song>?>(null) }
     var longMessage by remember { mutableStateOf<String?>(null) }
@@ -201,6 +206,17 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
         scanning -> "SCANNING STORAGE…"
         else -> "${library.songs.size} TRACKS INDEXED"
     }
+    // Screen transitions: the old screen pixels out, then the new one pixels in.
+    val target = tab to stack.lastOrNull()
+    var shown by remember { mutableStateOf(target) }
+    val cover = remember { Animatable(0f) }
+    LaunchedEffect(target) {
+        if (target == shown) return@LaunchedEffect
+        cover.animateTo(1f, tween(130, easing = LinearEasing))
+        shown = target
+        cover.animateTo(0f, tween(200, easing = LinearEasing))
+    }
+
     val selectTab: (Int) -> Unit = { i ->
         tab = Tab.entries[i]
         stack.clear()
@@ -266,9 +282,9 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                 }
                 Row(Modifier.weight(1f)) {
                 if (landscape) TacNavRail(navTabs, selected = tab.ordinal, onSelect = selectTab)
-                Box(Modifier.weight(1f)) {
-                    when (val detail = stack.lastOrNull()) {
-                        null -> when (tab) {
+                Box(Modifier.weight(1f).pixelCover({ cover.value })) {
+                    when (val detail = shown.second) {
+                        null -> when (shown.first) {
                             Tab.Library -> LibraryScreen(
                                 library, scanning, currentId, songActions,
                                 onOpen = { stack.add(it) },
@@ -289,7 +305,7 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                             )
                             Tab.Settings -> SettingsScreen(
                                 library, crossfadeMs, smartShuffle, tintArt, scanlines, accounts, hiddenIds.size, busy != null,
-                                boostDb, hiRes,
+                                boostDb, hiRes, bootAnim,
                                 SettingsActions(
                                     onBoostDb = vm::setBoostDb,
                                     onHiRes = vm::setHiRes,
@@ -299,6 +315,7 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                                     onCrossfadeSeconds = vm::setCrossfadeSeconds,
                                     onSmartShuffle = vm::setSmartShuffle,
                                     onTintArt = vm::setTintArt,
+                                    onBootAnim = vm::setBootAnim,
                                     onScanlines = vm::setScanlines,
                                     onAddFiles = platform.pickFiles,
                                     onAddFolder = platform.pickFolder,
