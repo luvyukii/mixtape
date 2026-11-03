@@ -74,6 +74,16 @@ class PlaylistStore(context: Context) {
         p.copy(entries = p.entries.filterIndexed { i, _ -> i != position })
     }
 
+    /** Adds one entry to a list with a fixed id (like the Wishlist), creating it if needed. */
+    fun appendTo(id: String, name: String, source: PlaylistSource, entry: PlaylistEntry) = mutate { list ->
+        if (list.any { it.id == id }) {
+            list.map { p ->
+                if (p.id != id || p.entries.any { it.title == entry.title && it.artist == entry.artist }) p
+                else p.copy(entries = p.entries + entry, updatedAt = now())
+            }
+        } else list + Playlist(id, name, source, listOf(entry), now())
+    }
+
     /** Adds a song list imported from a file or pasted text. */
     fun createImported(name: String, source: PlaylistSource, entries: List<PlaylistEntry>): String {
         val id = UUID.randomUUID().toString()

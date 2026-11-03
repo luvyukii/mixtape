@@ -36,6 +36,17 @@ Settings → **Import likes for free** reads files you can export yourself, then
 - **YouTube Music:** [takeout.google.com](https://takeout.google.com), select only *YouTube and YouTube Music*, then import `music library songs.csv`.
 - **Anything else:** any CSV with a title column and an artist column works (Exportify, TuneMyMusic, Soundiiz). You can also **Paste a list** with one `Artist - Title` per line.
 
+## Browse YouTube, SoundCloud and Spotify
+
+The **Browse** tab opens each site's own web player inside Mixtape, so you can search and play there.
+- **Wishlist:** tap the ➕ icon on a song's page to save it to your *Wishlist* playlist. If you add the file later, it matches automatically.
+- **Downloads:** files a site offers itself, like a SoundCloud track whose artist enabled "Download file", save to `Music/Mixtape/Downloads`. YouTube and Spotify don't offer downloads, and Mixtape doesn't rip audio.
+- **Signing in:** Google blocks sign-in inside apps' built-in browsers, so YouTube works signed out. Spotify's web player needs DRM support and may only play previews on some phones.
+
+## Editing song info
+
+Tap ⋮ → **Edit info…** on any song, or the ✏️ on an album page to change the whole album. Changes show in Mixtape right away. With "Also save into the file" checked, Mixtape also writes them into the file's tags so other apps see them; Android will ask permission for files Mixtape didn't create.
+
 ## Hiding and deleting songs
 
 Every song's ⋮ menu has two options:

@@ -24,7 +24,11 @@ import kotlinx.coroutines.sync.withLock
  * Reads every music file Android knows about (MediaStore) and keeps the
  * organized library up to date as files are added or removed.
  */
-class LibraryRepository(context: Context, private val settings: Settings) {
+class LibraryRepository(
+    context: Context,
+    private val settings: Settings,
+    private val metadata: MetadataStore,
+) {
 
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -57,11 +61,16 @@ class LibraryRepository(context: Context, private val settings: Settings) {
     init {
         // Re-sort the library whenever songs are hidden or unhidden.
         scope.launch { settings.hiddenIds.collect { publish() } }
+        // ...and whenever song info is edited.
+        scope.launch { metadata.edits.collect { publish() } }
     }
 
     private fun publish() {
         val hidden = settings.hiddenIds.value
-        _library.value = LibraryOrganizer.organize(_allSongs.value.filter { it.id !in hidden })
+        val edits = metadata.edits.value
+        _library.value = LibraryOrganizer.organize(
+            _allSongs.value.filter { it.id !in hidden }.map { song -> edits[song.id]?.let { song.withEdit(it) } ?: song }
+        )
     }
 
     /** Call once the audio permission is granted. */

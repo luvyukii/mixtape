@@ -11,6 +11,10 @@ import android.os.Bundle
 import android.app.RecoverableSecurityException
 import android.provider.MediaStore
 import androidx.activity.result.IntentSenderRequest
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
 import com.mixtape.player.data.Song
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -54,6 +58,11 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    private val writeConfirm =
+        registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            vm.onWritePermissionResult(result.resultCode == RESULT_OK)
+        }
+
     private val pickLikesFile =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             uri?.let(vm::importLikesFile)
@@ -82,6 +91,13 @@ class MainActivity : ComponentActivity() {
             deleteSongs = ::deleteSongs,
             pickLikesFile = { pickLikesFile.launch(arrayOf("*/*")) },
         )
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                vm.writeRequests.collect { sender ->
+                    writeConfirm.launch(IntentSenderRequest.Builder(sender).build())
+                }
+            }
+        }
         setContent {
             MixtapeTheme {
                 MixtapeRoot(vm, platform)

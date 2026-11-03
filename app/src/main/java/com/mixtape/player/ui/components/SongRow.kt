@@ -8,6 +8,7 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteForever
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.SkipNext
@@ -36,6 +37,7 @@ class SongActions(
     val addToQueue: (Song) -> Unit,
     val addToPlaylist: (Song) -> Unit,
     val hide: (Song) -> Unit,
+    val edit: (Song) -> Unit,
     val delete: (Song) -> Unit,
 )
 
@@ -91,6 +93,11 @@ private fun SongMenu(song: Song, actions: SongActions, onRemove: (() -> Unit)?, 
                 text = { Text("Add to playlist…") },
                 leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
                 onClick = { open = false; actions.addToPlaylist(song) },
+            )
+            DropdownMenuItem(
+                text = { Text("Edit info…") },
+                leadingIcon = { Icon(Icons.Rounded.Edit, null) },
+                onClick = { open = false; actions.edit(song) },
             )
             DropdownMenuItem(
                 text = { Text("Hide from library") },

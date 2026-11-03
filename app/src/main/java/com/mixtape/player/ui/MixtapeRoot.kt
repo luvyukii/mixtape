@@ -52,6 +52,12 @@ import com.mixtape.player.data.TrackMatcher
 import com.mixtape.player.ui.components.SongActions
 import com.mixtape.player.ui.screens.AddToPlaylistDialog
 import com.mixtape.player.ui.screens.CollectionScreen
+import com.mixtape.player.ui.screens.EditInfoDialog
+import com.mixtape.player.ui.screens.BrowseScreen
+import com.mixtape.player.ui.screens.BrowseState
+import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material3.IconButton
 import com.mixtape.player.ui.screens.LibraryScreen
 import com.mixtape.player.ui.screens.MiniPlayer
 import com.mixtape.player.ui.screens.NowPlayingScreen
@@ -69,7 +75,7 @@ sealed interface Detail {
     data class PlaylistD(val id: String) : Detail
 }
 
-private enum class Tab(val label: String) { Library("Library"), Playlists("Playlists"), Settings("Settings") }
+private enum class Tab(val label: String) { Library("Library"), Playlists("Playlists"), Browse("Browse"), Settings("Settings") }
 
 /** Things that need the Activity (pickers, browser, Google sign-in). */
 class PlatformActions(
@@ -105,8 +111,10 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
     var nowPlayingOpen by rememberSaveable { mutableStateOf(false) }
     var addToPlaylist by remember { mutableStateOf<List<Song>?>(null) }
     var confirmDelete by remember { mutableStateOf<Song?>(null) }
+    var editing by remember { mutableStateOf<List<Song>?>(null) }
     var longMessage by remember { mutableStateOf<String?>(null) }
     val snackbar = remember { SnackbarHostState() }
+    val browse = remember { BrowseState() }
     val matcher = remember(library) { TrackMatcher.Index(library.songs) }
     val currentId = playback.current?.id
 
@@ -137,6 +145,7 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
             addToQueue = vm::addToQueue,
             addToPlaylist = { addToPlaylist = listOf(it) },
             hide = vm::hideSong,
+            edit = { editing = listOf(it) },
             delete = { confirmDelete = it },
         )
     }
@@ -163,6 +172,7 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                                         when (t) {
                                             Tab.Library -> Icons.Rounded.LibraryMusic
                                             Tab.Playlists -> Icons.AutoMirrored.Rounded.QueueMusic
+                                            Tab.Browse -> Icons.Rounded.Explore
                                             Tab.Settings -> Icons.Rounded.Settings
                                         },
                                         contentDescription = null,
@@ -204,6 +214,11 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                                 onOpen = { stack.add(Detail.PlaylistD(it.id)) },
                                 onCreate = { vm.createPlaylist(it) },
                             )
+                            Tab.Browse -> BrowseScreen(
+                                state = browse,
+                                onMessage = vm::showMessage,
+                                onSaveToWishlist = vm::saveToWishlist,
+                            )
                             Tab.Settings -> SettingsScreen(
                                 library, crossfadeMs, smartShuffle, accounts, hiddenIds.size, busy != null,
                                 SettingsActions(
@@ -237,6 +252,11 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                                     .joinToString(" · "),
                                 songs = album.songs, currentSongId = currentId, actions = songActions,
                                 onBack = back, onPlay = play, onShuffle = shuffle, showTrackArtist = false,
+                                headerActions = {
+                                    IconButton(onClick = { editing = album.songs }) {
+                                        Icon(Icons.Rounded.Edit, "Edit album info")
+                                    }
+                                },
                             )
                         } ?: Gone(back)
 
@@ -297,6 +317,15 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                 )
             }
         }
+    }
+
+    editing?.let { songs ->
+        // Edit using the songs as Android sees them, so "changed" compares against the file.
+        EditInfoDialog(
+            songs = songs,
+            onDismiss = { editing = null },
+            onSave = { edit, toFile -> editing = null; vm.saveSongInfo(songs, edit, toFile) },
+        )
     }
 
     longMessage?.let { text ->

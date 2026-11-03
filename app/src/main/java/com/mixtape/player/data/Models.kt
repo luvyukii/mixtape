@@ -24,8 +24,32 @@ data class Song(
     val dateAdded: Long,
     /** Relative folder, e.g. "Music/Albums/Rumours/". */
     val folder: String,
+    /** Android's album id, for cover art; stays put even if the album name is edited. */
+    val artId: Long = albumId,
 ) {
-    val artUri: Uri get() = ContentUris.withAppendedId(ALBUM_ART_BASE, albumId)
+    val artUri: Uri get() = ContentUris.withAppendedId(ALBUM_ART_BASE, artId)
+
+    /** This song with your edits applied. An edited album gets its own grouping id. */
+    fun withEdit(e: SongEdit): Song {
+        val newArtist = e.artist ?: artist
+        val newAlbum = e.album ?: album
+        val newAlbumArtist = e.albumArtist ?: albumArtist
+        val regroup = e.album != null || e.albumArtist != null
+        return copy(
+            title = e.title ?: title,
+            artist = newArtist,
+            primaryArtist = LibraryOrganizer.primaryArtist(newArtist),
+            album = newAlbum,
+            albumArtist = newAlbumArtist,
+            genre = e.genre ?: genre,
+            year = e.year ?: year,
+            track = e.track ?: track,
+            albumId = if (regroup) {
+                -1L - ("${newAlbum.lowercase()}|${newAlbumArtist.lowercase()}".hashCode().toLong() and 0x7fffffffL)
+            } else albumId,
+            artId = artId,
+        )
+    }
 }
 
 data class Album(

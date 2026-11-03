@@ -8,7 +8,18 @@ import com.mixtape.player.MixtapeApp
 import com.mixtape.player.data.PlaylistEntry
 import com.mixtape.player.data.PlaylistSource
 import com.mixtape.player.data.Song
+import com.mixtape.player.data.SongEdit
+import com.mixtape.player.data.TagWriter
 import com.mixtape.player.data.TrackListParser
+import com.mixtape.player.data.UnsupportedFormatException
+import android.app.RecoverableSecurityException
+import android.content.IntentSender
+import android.os.Build
+import android.provider.MediaStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import com.mixtape.player.data.TrackMatcher
 import com.mixtape.player.integrations.ExternalTrack
 import com.mixtape.player.integrations.HttpError
@@ -54,6 +65,111 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     var pendingDelete: List<Song> = emptyList()
 
     fun showMessage(text: String) = say(text)
+
+    // ---- editing song info -----------------------------------------------------------------
+
+    /** Android's "Allow Mixtape to modify this file?" prompt, for the Activity to show. */
+    private val _writeRequests = MutableSharedFlow<IntentSender>(extraBufferCapacity = 1)
+    val writeRequests: SharedFlow<IntentSender> = _writeRequests.asSharedFlow()
+
+    private var pendingTagWrite: Pair<List<Song>, SongEdit>? = null
+    /** Edits for songs that were playing; written into the file once they stop. */
+    private val deferredWrites = LinkedHashMap<Long, Pair<Song, SongEdit>>()
+
+    init {
+        viewModelScope.launch {
+            engine.state.map { it.current?.id }.distinctUntilChanged().collect { flushDeferredWrites() }
+        }
+    }
+
+    /**
+     * Saves edited info. It shows in Mixtape right away; with [writeToFile] it's also
+     * written into the files so other apps see it.
+     */
+    fun saveSongInfo(songs: List<Song>, edit: SongEdit, writeToFile: Boolean) {
+        if (songs.isEmpty()) return
+        app.metadata.apply(songs.map { it.id }, edit)
+        if (writeToFile) writeTags(songs, edit, askPermission = true)
+        else say("Saved")
+    }
+
+    fun onWritePermissionResult(granted: Boolean) {
+        val (songs, edit) = pendingTagWrite ?: return
+        pendingTagWrite = null
+        if (granted) writeTags(songs, edit, askPermission = false)
+        else say("Saved in Mixtape. The file itself wasn't changed.")
+    }
+
+    private fun writeTags(songs: List<Song>, edit: SongEdit, askPermission: Boolean) {
+        viewModelScope.launch {
+            val playingId = engine.state.value.current?.id
+            val needPermission = ArrayList<Song>()
+            var recoverable: RecoverableSecurityException? = null
+            var written = 0
+            var deferred = 0
+            var unsupported = 0
+            var failed = 0
+            withContext(Dispatchers.IO) {
+                for (song in songs) {
+                    try {
+                        if (song.id == playingId) {
+                            // Rewriting a file mid-playback would glitch it; check access now, write later.
+                            app.contentResolver.openFileDescriptor(song.uri, "rw")?.close()
+                            synchronized(deferredWrites) { deferredWrites[song.id] = song to edit }
+                            deferred++
+                        } else {
+                            TagWriter.write(app, song, edit)
+                            written++
+                        }
+                    } catch (e: RecoverableSecurityException) {
+                        needPermission += song
+                        if (recoverable == null) recoverable = e
+                    } catch (e: SecurityException) {
+                        needPermission += song
+                    } catch (e: UnsupportedFormatException) {
+                        unsupported++
+                    } catch (e: Exception) {
+                        android.util.Log.w("MainViewModel", "Tag write failed", e)
+                        failed++
+                    }
+                }
+            }
+            if (needPermission.isNotEmpty() && askPermission) {
+                val sender = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    MediaStore.createWriteRequest(app.contentResolver, needPermission.map { it.uri }).intentSender
+                } else recoverable?.userAction?.actionIntent?.intentSender
+                if (sender != null) {
+                    pendingTagWrite = needPermission to edit
+                    _writeRequests.tryEmit(sender)
+                    return@launch
+                }
+            }
+            failed += needPermission.size
+            if (written > 0) app.library.refresh()
+            say(
+                buildString {
+                    append("Saved")
+                    if (deferred > 0) append(". The playing song's file updates when it finishes")
+                    if (unsupported > 0) append(". $unsupported file type(s) can't hold tags, so those changes are in Mixtape only")
+                    if (failed > 0) append(". $failed file(s) couldn't be changed; edits are in Mixtape only")
+                }
+            )
+        }
+    }
+
+    private fun flushDeferredWrites() {
+        val playingId = engine.state.value.current?.id
+        val ready = synchronized(deferredWrites) {
+            deferredWrites.values.filter { it.first.id != playingId }.also { list ->
+                list.forEach { deferredWrites.remove(it.first.id) }
+            }
+        }
+        if (ready.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            ready.forEach { (song, edit) -> runCatching { TagWriter.write(app, song, edit) } }
+            app.library.refresh()
+        }
+    }
 
     fun onPermissionResult(granted: Boolean) {
         _hasPermission.value = granted
@@ -242,6 +358,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             TrackListParser.parseFile(name, bytes)
         }
         saveParsed(parsed)
+    }
+
+    /** Remembers a song found while browsing, so you can find or buy it later. */
+    fun saveToWishlist(title: String, artist: String, url: String, source: PlaylistSource) {
+        app.playlists.appendTo(
+            "wishlist", "Wishlist", PlaylistSource.LIST,
+            PlaylistEntry(title = title, artist = artist, externalUrl = url.ifBlank { null }),
+        )
+        say("Saved “$title” to your Wishlist in Playlists")
     }
 
     /** Imports a pasted list, one "Artist - Title" per line. */

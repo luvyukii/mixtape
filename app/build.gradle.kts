@@ -68,6 +68,9 @@ dependencies {
 
     // Folder import, sign-in browser tabs
     implementation("androidx.documentfile:documentfile:1.0.1")
+
+    // Writing edited title/artist/etc. into music files
+    implementation("net.jthink:jaudiotagger:3.0.1")
     implementation("androidx.browser:browser:1.8.0")
 
     // Google sign-in for YouTube likes

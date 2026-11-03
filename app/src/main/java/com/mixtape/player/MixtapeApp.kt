@@ -3,6 +3,7 @@ package com.mixtape.player
 import android.app.Application
 import com.mixtape.player.data.ImportManager
 import com.mixtape.player.data.LibraryRepository
+import com.mixtape.player.data.MetadataStore
 import com.mixtape.player.data.PlaylistStore
 import com.mixtape.player.data.Settings
 import com.mixtape.player.integrations.SoundCloudClient
@@ -29,11 +30,14 @@ class MixtapeApp : Application() {
         private set
     lateinit var youTube: YouTubeClient
         private set
+    lateinit var metadata: MetadataStore
+        private set
 
     override fun onCreate() {
         super.onCreate()
         settings = Settings(this)
-        library = LibraryRepository(this, settings)
+        metadata = MetadataStore(this)
+        library = LibraryRepository(this, settings, metadata)
         engine = CrossfadeEngine(this, settings)
         playlists = PlaylistStore(this)
         importer = ImportManager(this)
