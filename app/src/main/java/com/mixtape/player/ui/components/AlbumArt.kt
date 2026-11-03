@@ -45,9 +45,9 @@ fun AlbumArt(
     shape: Shape = RoundedCornerShape(8.dp),
 ) {
     val context = LocalContext.current
-    val key = song?.let { "${it.artId}:$sizePx" }
-    // Keyed on the song's album, so a new song always starts from its own art (or the
-    // placeholder) instead of keeping the previous song's picture.
+    val key = song?.let { "${it.id}:${it.modified}:$sizePx" }
+    // Keyed on the song itself: songs Android lumps into one "album" can carry different
+    // pictures, so each file shows its own embedded art.
     var bitmap by remember(key) { mutableStateOf(key?.let { cache.get(it) }) }
 
     LaunchedEffect(key) {

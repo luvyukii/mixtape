@@ -6,7 +6,10 @@ import android.database.ContentObserver
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.media.MediaMetadataRetriever
 import android.provider.MediaStore
+import org.json.JSONObject
+import java.io.File
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -91,7 +94,7 @@ class LibraryRepository(
     private suspend fun scan() = scanLock.withLock {
         _scanning.value = true
         try {
-            _allSongs.value = query()
+            _allSongs.value = fixFolderAlbums(query())
             publish()
         } catch (e: SecurityException) {
             Log.w(TAG, "No permission to read music yet", e)
@@ -114,6 +117,7 @@ class LibraryRepository(
             MediaStore.Audio.Media.DATE_ADDED,
             MediaStore.Audio.Media.RELATIVE_PATH,
             MediaStore.Audio.Media.DISPLAY_NAME,
+            MediaStore.Audio.Media.DATE_MODIFIED,
         )
         val hasGenre = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
         if (hasGenre) columns += MediaStore.Audio.Media.GENRE
@@ -139,6 +143,7 @@ class LibraryRepository(
             val added = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
             val path = c.getColumnIndexOrThrow(MediaStore.Audio.Media.RELATIVE_PATH)
             val name = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+            val modified = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
             val genre = if (hasGenre) c.getColumnIndex(MediaStore.Audio.Media.GENRE) else -1
 
             while (c.moveToNext()) {
@@ -162,13 +167,68 @@ class LibraryRepository(
                     year = c.getInt(year),
                     dateAdded = c.getLong(added),
                     folder = c.getString(path).orEmpty(),
+                    modified = c.getLong(modified),
                 )
             }
         }
         return songs
     }
 
+    // ---- folder names posing as albums -------------------------------------------------
+
+    /**
+     * When a file has no album tag, Android fills in its folder's name as the album. For songs
+     * whose album equals their folder name, read the file's own tags; if it really has no album,
+     * file it under "Unknown album" instead. Results are cached so each file is checked once.
+     */
+    private fun fixFolderAlbums(songs: List<Song>): List<Song> {
+        val cache = loadTagCache()
+        var dirty = false
+        val out = songs.map { s ->
+            val folderName = s.folder.trimEnd('/').substringAfterLast('/')
+            if (folderName.isEmpty() || !s.album.equals(folderName, ignoreCase = true)) return@map s
+            val key = "${s.id}:${s.modified}"
+            val tag = cache[key] ?: readAlbumTag(s)?.also {
+                cache[key] = it
+                dirty = true
+            } ?: return@map s // couldn't read the file; leave it as it was
+            if (tag.isBlank()) {
+                s.copy(album = LibraryOrganizer.UNKNOWN_ALBUM, albumId = UNKNOWN_ALBUM_ID)
+            } else s
+        }
+        if (dirty) saveTagCache(cache)
+        return out
+    }
+
+    /** The album tag stored in the file ("" if none), or null if the file couldn't be read. */
+    private fun readAlbumTag(s: Song): String? {
+        val r = MediaMetadataRetriever()
+        return try {
+            r.setDataSource(appContext, s.uri)
+            r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)?.trim().orEmpty()
+        } catch (e: Exception) {
+            null
+        } finally {
+            runCatching { r.release() }
+        }
+    }
+
+    private val tagCacheFile get() = File(appContext.filesDir, "album_tags.json")
+
+    private fun loadTagCache(): MutableMap<String, String> = try {
+        val o = JSONObject(tagCacheFile.readText())
+        o.keys().asSequence().associateWith { o.getString(it) }.toMutableMap()
+    } catch (e: Exception) {
+        HashMap()
+    }
+
+    private fun saveTagCache(map: Map<String, String>) {
+        runCatching { tagCacheFile.writeText(JSONObject(map).toString()) }
+    }
+
     companion object {
+        /** All songs with no album tag are grouped together. */
+        const val UNKNOWN_ALBUM_ID = -2L
         private const val TAG = "LibraryRepository"
         private const val MIN_DURATION_MS = 15_000
     }

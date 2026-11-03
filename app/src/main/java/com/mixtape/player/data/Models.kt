@@ -26,6 +26,8 @@ data class Song(
     val folder: String,
     /** Android's album id, for cover art; stays put even if the album name is edited. */
     val artId: Long = albumId,
+    /** File's last-modified time (seconds), used to cache tag checks. */
+    val modified: Long = 0,
 ) {
     val artUri: Uri get() = ContentUris.withAppendedId(ALBUM_ART_BASE, artId)
 
