@@ -105,7 +105,6 @@ sealed interface Detail {
     data class AlbumD(val id: Long) : Detail
     data class ArtistD(val key: String) : Detail
     data class GenreD(val key: String) : Detail
-    data class FolderD(val key: String) : Detail
     data class PlaylistD(val id: String) : Detail
 }
 
@@ -337,10 +336,6 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                         } ?: Gone(back)
 
                         is Detail.GenreD -> library.genre(detail.key)?.let { g ->
-                            CollectionScreen(g.name, g.subtitle, g.songs, currentId, songActions, back, play, shuffle)
-                        } ?: Gone(back)
-
-                        is Detail.FolderD -> library.folder(detail.key)?.let { g ->
                             CollectionScreen(g.name, g.subtitle, g.songs, currentId, songActions, back, play, shuffle)
                         } ?: Gone(back)
 

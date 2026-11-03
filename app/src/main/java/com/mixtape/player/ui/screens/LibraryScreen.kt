@@ -74,7 +74,7 @@ import androidx.compose.ui.unit.sp
 import com.mixtape.player.ui.theme.Tac
 import androidx.compose.runtime.SideEffect
 
-private enum class LibraryTab(val label: String) { Songs("Songs"), Albums("Albums"), Artists("Artists"), Genres("Genres"), Folders("Folders") }
+private enum class LibraryTab(val label: String) { Songs("Songs"), Albums("Albums"), Artists("Artists"), Genres("Genres") }
 private enum class SongSort(val label: String) { Title("Title"), Artist("Artist"), Recent("Recently added"), Album("Album") }
 
 @Composable
@@ -113,12 +113,11 @@ fun LibraryScreen(
                     modifier = Modifier.padding(top = 4.dp),
                 )
                 PixelReveal(tab, Modifier.weight(1f)) {
-                when (LibraryTab.entries[tab]) {
+                when (LibraryTab.entries[tab.coerceIn(0, LibraryTab.entries.lastIndex)]) {
                     LibraryTab.Songs -> SongsTab(library.songs, currentSongId, actions, onPlay, onShuffle)
                     LibraryTab.Albums -> AlbumsGrid(library.albums) { onOpen(Detail.AlbumD(it.id)) }
                     LibraryTab.Artists -> GroupList(library.artists, circleArt = true) { onOpen(Detail.ArtistD(it.key)) }
                     LibraryTab.Genres -> GroupList(library.genres) { onOpen(Detail.GenreD(it.key)) }
-                    LibraryTab.Folders -> GroupList(library.folders, folderIcon = true) { onOpen(Detail.FolderD(it.key)) }
                 }
                 }
             }
