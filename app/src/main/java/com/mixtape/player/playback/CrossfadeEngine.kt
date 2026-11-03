@@ -260,6 +260,50 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
         publish()
     }
 
+    /**
+     * Drops songs that were deleted from the phone. If the current song is one of them,
+     * playback moves on to the next remaining song (or stops if none are left).
+     */
+    fun removeSongs(ids: Set<Long>) {
+        if (queue.none { it.id in ids }) {
+            original = original.filter { it.id !in ids }
+            return
+        }
+        val currentGone = queue.getOrNull(index)?.id in ids
+        val keptBefore = queue.take(index.coerceAtLeast(0)).count { it.id !in ids }
+        val wasPlaying = isPlaying
+        queue = queue.filter { it.id !in ids }
+        original = original.filter { it.id !in ids }
+
+        if (queue.isEmpty()) {
+            cancelFade()
+            resetStandby()
+            active.stop()
+            active.clearMediaItems()
+            index = -1
+            focus.abandon()
+            publish()
+            return
+        }
+        if (currentGone) {
+            val next = when {
+                keptBefore < queue.size -> keptBefore
+                repeat != RepeatMode.OFF -> 0
+                else -> null
+            }
+            if (next == null) {
+                loadIntoActive(queue.lastIndex, play = false)
+            } else {
+                loadIntoActive(next, play = wasPlaying)
+            }
+        } else {
+            index = keptBefore
+            if (fadeJob != null) cancelFade() // the fading-out song may be the deleted one
+            resetStandby()
+            publish()
+        }
+    }
+
     // ---- loading & crossfading -------------------------------------------------------------
 
     private fun loadIntoActive(position: Int, play: Boolean) {

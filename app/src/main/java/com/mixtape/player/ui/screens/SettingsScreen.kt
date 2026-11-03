@@ -11,7 +11,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +39,9 @@ import com.mixtape.player.integrations.SoundCloudClient
 import com.mixtape.player.integrations.SpotifyClient
 
 class SettingsActions(
+    val onImportFile: () -> Unit,
+    val onPasteList: (name: String, text: String) -> Unit,
+    val onUnhideAll: () -> Unit,
     val onCrossfadeSeconds: (Int) -> Unit,
     val onSmartShuffle: (Boolean) -> Unit,
     val onAddFiles: () -> Unit,
@@ -57,9 +66,11 @@ fun SettingsScreen(
     crossfadeMs: Int,
     smartShuffle: Boolean,
     accounts: AccountsState,
+    hiddenCount: Int,
     busy: Boolean,
     actions: SettingsActions,
 ) {
+    var pasting by remember { mutableStateOf(false) }
     Column(
         Modifier
             .fillMaxSize()
@@ -88,6 +99,27 @@ fun SettingsScreen(
                 FilledTonalButton(onClick = actions.onAddFolder) { Text("Add a folder") }
             }
             OutlinedButton(onClick = actions.onRescan) { Text("Rescan library") }
+            if (hiddenCount > 0) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (hiddenCount == 1) "1 hidden song" else "$hiddenCount hidden songs",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = actions.onUnhideAll) { Text("Show all again") }
+                }
+            }
+        }
+
+        Section("Import likes for free") {
+            Hint("No developer account or subscription needed. Import a file you've exported, or paste a list. Songs you already have are matched automatically.")
+            Hint("• Spotify: spotify.com → Account → Privacy settings → Download your data → \"Account data\". You'll get an email with a .zip in a few days; import the zip here.")
+            Hint("• YouTube Music: takeout.google.com → select only \"YouTube and YouTube Music\" → import \"music library songs.csv\".")
+            Hint("• Any service: export a CSV with a free tool like Exportify or TuneMyMusic, or paste lines like \"Artist - Title\".")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = actions.onImportFile, enabled = !busy) { Text("Import a file") }
+                FilledTonalButton(onClick = { pasting = true }) { Text("Paste a list") }
+            }
         }
 
         Section("Spotify") {
@@ -126,6 +158,37 @@ fun SettingsScreen(
         }
         Spacer(Modifier.height(24.dp))
     }
+
+    if (pasting) {
+        PasteListDialog(
+            onDismiss = { pasting = false },
+            onImport = { name, text -> pasting = false; actions.onPasteList(name, text) },
+        )
+    }
+}
+
+@Composable
+private fun PasteListDialog(onDismiss: () -> Unit, onImport: (String, String) -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var text by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Paste a song list") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Playlist name") }, singleLine = true)
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("One per line: Artist - Title") },
+                    minLines = 6,
+                    maxLines = 12,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onImport(name, text) }, enabled = text.isNotBlank()) { Text("Import") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

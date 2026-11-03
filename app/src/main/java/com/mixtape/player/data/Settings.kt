@@ -33,6 +33,21 @@ class Settings(context: Context) {
     private val _accounts = MutableStateFlow(readAccounts())
     val accounts: StateFlow<AccountsState> = _accounts.asStateFlow()
 
+    /** Songs hidden from the library (the files stay on the phone). */
+    private val _hiddenIds = MutableStateFlow(
+        prefs.getStringSet(K_HIDDEN, emptySet()).orEmpty().mapNotNull { it.toLongOrNull() }.toSet()
+    )
+    val hiddenIds: StateFlow<Set<Long>> = _hiddenIds.asStateFlow()
+
+    fun hide(ids: Collection<Long>) = setHidden(_hiddenIds.value + ids)
+    fun unhide(ids: Collection<Long>) = setHidden(_hiddenIds.value - ids.toSet())
+    fun unhideAll() = setHidden(emptySet())
+
+    private fun setHidden(ids: Set<Long>) {
+        prefs.edit { putStringSet(K_HIDDEN, ids.map { it.toString() }.toSet()) }
+        _hiddenIds.value = ids
+    }
+
     fun setCrossfadeMs(ms: Int) {
         val v = ms.coerceIn(0, MAX_CROSSFADE_MS)
         prefs.edit { putInt(K_CROSSFADE, v) }
@@ -114,5 +129,6 @@ class Settings(context: Context) {
         private const val K_SC_CLIENT = "soundcloud.clientId"
         private const val K_SC_SECRET = "soundcloud.clientSecret"
         private const val K_YT_MUSIC_ONLY = "youtube.musicOnly"
+        private const val K_HIDDEN = "library.hidden"
     }
 }

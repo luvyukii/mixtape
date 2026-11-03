@@ -33,7 +33,7 @@ class MixtapeApp : Application() {
     override fun onCreate() {
         super.onCreate()
         settings = Settings(this)
-        library = LibraryRepository(this)
+        library = LibraryRepository(this, settings)
         engine = CrossfadeEngine(this, settings)
         playlists = PlaylistStore(this)
         importer = ImportManager(this)

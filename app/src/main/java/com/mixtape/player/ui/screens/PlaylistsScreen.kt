@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.SmartDisplay
 import androidx.compose.material3.AlertDialog
@@ -96,6 +97,7 @@ fun iconFor(source: PlaylistSource): ImageVector = when (source) {
     PlaylistSource.SPOTIFY -> Icons.Rounded.Favorite
     PlaylistSource.YOUTUBE -> Icons.Rounded.SmartDisplay
     PlaylistSource.SOUNDCLOUD -> Icons.Rounded.Cloud
+    PlaylistSource.LIST -> Icons.Rounded.Description
 }
 
 @Composable

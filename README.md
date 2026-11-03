@@ -28,6 +28,20 @@ New builds install over the old one and keep your settings, because every build 
 
 To build on a computer instead, open this folder in Android Studio and press **Run**.
 
+## Import likes for free (no developer account)
+
+Settings → **Import likes for free** reads files you can export yourself, then matches them to music on your phone:
+
+- **Spotify:** spotify.com → Account → Privacy settings → *Download your data* → **Account data**. Spotify emails a `.zip` within a few days. Import the zip as-is; Mixtape reads `YourLibrary.json` from it.
+- **YouTube Music:** [takeout.google.com](https://takeout.google.com), select only *YouTube and YouTube Music*, then import `music library songs.csv`.
+- **Anything else:** any CSV with a title column and an artist column works (Exportify, TuneMyMusic, Soundiiz). You can also **Paste a list** with one `Artist - Title` per line.
+
+## Hiding and deleting songs
+
+Every song's ⋮ menu has two options:
+- **Hide from library:** the file stays on the phone. Bring hidden songs back from Settings → Library.
+- **Delete from phone:** permanently deletes the file. Android asks you to confirm first.
+
 ## Connecting your accounts (optional)
 
 Each service needs a free developer app of your own. Only you will use it, so you can skip any review process.

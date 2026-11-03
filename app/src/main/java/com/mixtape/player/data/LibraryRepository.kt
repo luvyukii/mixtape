@@ -24,7 +24,7 @@ import kotlinx.coroutines.sync.withLock
  * Reads every music file Android knows about (MediaStore) and keeps the
  * organized library up to date as files are added or removed.
  */
-class LibraryRepository(context: Context) {
+class LibraryRepository(context: Context, private val settings: Settings) {
 
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -32,6 +32,10 @@ class LibraryRepository(context: Context) {
 
     private val _library = MutableStateFlow(Library.Empty)
     val library: StateFlow<Library> = _library.asStateFlow()
+
+    /** Every song found, including hidden ones. */
+    private val _allSongs = MutableStateFlow<List<Song>>(emptyList())
+    val allSongs: StateFlow<List<Song>> = _allSongs.asStateFlow()
 
     private val _scanning = MutableStateFlow(false)
     val scanning: StateFlow<Boolean> = _scanning.asStateFlow()
@@ -48,6 +52,16 @@ class LibraryRepository(context: Context) {
                 scan()
             }
         }
+    }
+
+    init {
+        // Re-sort the library whenever songs are hidden or unhidden.
+        scope.launch { settings.hiddenIds.collect { publish() } }
+    }
+
+    private fun publish() {
+        val hidden = settings.hiddenIds.value
+        _library.value = LibraryOrganizer.organize(_allSongs.value.filter { it.id !in hidden })
     }
 
     /** Call once the audio permission is granted. */
@@ -68,7 +82,8 @@ class LibraryRepository(context: Context) {
     private suspend fun scan() = scanLock.withLock {
         _scanning.value = true
         try {
-            _library.value = LibraryOrganizer.organize(query())
+            _allSongs.value = query()
+            publish()
         } catch (e: SecurityException) {
             Log.w(TAG, "No permission to read music yet", e)
         } finally {

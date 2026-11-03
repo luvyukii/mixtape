@@ -45,6 +45,8 @@ object TrackMatcher {
             if (artistMatches.isNotEmpty()) {
                 return artistMatches.minByOrNull { if (durationMs > 0) abs(it.durationMs - durationMs) else 0L }
             }
+            // A pasted list may have titles only: accept when the title is unique.
+            if (wanted.isEmpty() && candidates.size == 1) return candidates[0]
             // Same title, unknown/odd artist tag: accept only when the lengths agree.
             if (durationMs > 0) {
                 return candidates.firstOrNull { abs(it.durationMs - durationMs) <= 3_000 }

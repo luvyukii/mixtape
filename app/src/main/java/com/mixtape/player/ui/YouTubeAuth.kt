@@ -6,6 +6,8 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.CommonStatusCodes
 import com.google.android.gms.common.api.Scope
 import com.mixtape.player.integrations.YouTubeClient
 import kotlinx.coroutines.CompletableDeferred
@@ -36,8 +38,25 @@ class YouTubeAuth(private val activity: ComponentActivity) {
             if (token != null) waiting.complete(token)
             else waiting.completeExceptionally(IOException("Google didn't return a token."))
         } catch (e: Exception) {
-            waiting.completeExceptionally(IOException("Google sign-in failed: ${e.message}", e))
+            waiting.completeExceptionally(explain(e))
         }
+    }
+
+    /** Turns Google's numeric error codes into something a person can act on. */
+    private fun explain(e: Exception): IOException {
+        val code = (e as? ApiException)?.statusCode
+        val text = when (code) {
+            CommonStatusCodes.DEVELOPER_ERROR ->
+                "Google doesn't recognize Mixtape yet. In Google Cloud, create an Android OAuth client with package " +
+                    "com.mixtape.player and SHA-1 DB:05:B8:DA:0F:B6:D4:CB:B7:F8:13:9C:27:5C:52:33:D7:83:B0:EF (see README). " +
+                    "Or use Settings → Import likes for free instead."
+            CommonStatusCodes.NETWORK_ERROR -> "Couldn't reach Google. Check your connection and try again."
+            CommonStatusCodes.CANCELED, 12501 -> "Google sign-in was cancelled."
+            CommonStatusCodes.SIGN_IN_REQUIRED -> "Sign in to a Google account on this phone first."
+            null -> "Google sign-in failed: ${e.message}"
+            else -> "Google sign-in failed (code $code): ${e.message}"
+        }
+        return IOException(text, e)
     }
 
     suspend fun accessToken(): String {
@@ -47,9 +66,7 @@ class YouTubeAuth(private val activity: ComponentActivity) {
         val result = try {
             Identity.getAuthorizationClient(activity).authorize(request).await()
         } catch (e: Exception) {
-            throw IOException(
-                "Google sign-in isn't set up for this app yet. See the README's YouTube section. (${e.message})", e
-            )
+            throw explain(e)
         }
         val pendingIntent = result.pendingIntent
         if (result.hasResolution() && pendingIntent != null) {

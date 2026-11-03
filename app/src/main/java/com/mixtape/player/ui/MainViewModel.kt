@@ -8,6 +8,7 @@ import com.mixtape.player.MixtapeApp
 import com.mixtape.player.data.PlaylistEntry
 import com.mixtape.player.data.PlaylistSource
 import com.mixtape.player.data.Song
+import com.mixtape.player.data.TrackListParser
 import com.mixtape.player.data.TrackMatcher
 import com.mixtape.player.integrations.ExternalTrack
 import com.mixtape.player.integrations.HttpError
@@ -19,6 +20,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+/** A snackbar message, optionally with a button like "Undo". */
+class UiMessage(val text: String, val actionLabel: String? = null, val action: (() -> Unit)? = null)
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -41,8 +45,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _busy = MutableStateFlow<String?>(null)
     val busy: StateFlow<String?> = _busy.asStateFlow()
 
-    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
-    val messages: SharedFlow<String> = _messages.asSharedFlow()
+    private val _messages = MutableSharedFlow<UiMessage>(extraBufferCapacity = 8)
+    val messages: SharedFlow<UiMessage> = _messages.asSharedFlow()
+
+    val hiddenIds = settings.hiddenIds
+
+    /** Songs waiting on Android's delete confirmation; survives screen rotation. */
+    var pendingDelete: List<Song> = emptyList()
+
+    fun showMessage(text: String) = say(text)
 
     fun onPermissionResult(granted: Boolean) {
         _hasPermission.value = granted
@@ -99,6 +110,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         say("Added to “${app.playlists.get(playlistId)?.name}”")
     }
 
+    /** Hides a song from the library without touching the file. */
+    fun hideSong(song: Song) {
+        settings.hide(listOf(song.id))
+        _messages.tryEmit(UiMessage("Hid “${song.title}”", "Undo") { settings.unhide(listOf(song.id)) })
+    }
+
+    fun unhideAll() {
+        val n = settings.hiddenIds.value.size
+        settings.unhideAll()
+        say(if (n == 1) "1 song is back in your library" else "$n songs are back in your library")
+    }
+
+    /** Called after Android confirms the files were deleted. */
+    fun onSongsDeleted(songs: List<Song>) {
+        val ids = songs.map { it.id }.toSet()
+        engine.removeSongs(ids)
+        settings.unhide(ids)
+        app.library.refresh()
+        say(if (songs.size == 1) "Deleted “${songs[0].title}”" else "Deleted ${songs.size} songs")
+    }
+
     fun renamePlaylist(id: String, name: String) = app.playlists.rename(id, name)
     fun deletePlaylist(id: String) = app.playlists.delete(id)
     fun removeFromPlaylist(id: String, position: Int) = app.playlists.removeAt(id, position)
@@ -146,8 +178,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun importYouTubeLikes(token: suspend () -> String) = runTask("Signing in to Google…") {
         val accessToken = token()
         _busy.value = "Importing YouTube likes…"
-        val tracks = app.youTube.likedVideos(accessToken, accounts.value.youTubeMusicOnly) { n ->
-            _busy.value = "Importing YouTube likes… $n"
+        val tracks = try {
+            app.youTube.likedVideos(accessToken, accounts.value.youTubeMusicOnly) { n ->
+                _busy.value = "Importing YouTube likes… $n"
+            }
+        } catch (e: HttpError) {
+            throw java.io.IOException(
+                when {
+                    "accessNotConfigured" in e.body || "SERVICE_DISABLED" in e.body ->
+                        "YouTube Data API v3 isn't turned on in your Google Cloud project. Enable it, wait a minute, and try again."
+                    e.code == 401 || e.code == 403 ->
+                        "Google refused access (HTTP ${e.code}). Make sure your account is added as a test user on the OAuth consent screen."
+                    else -> "YouTube request failed (HTTP ${e.code})."
+                },
+                e,
+            )
         }
         saveImport(PlaylistSource.YOUTUBE, "YouTube likes", tracks)
     }
@@ -183,6 +228,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 else -> "Downloaded $ok, $failed failed"
             }
         )
+    }
+
+    /** Imports a song list from an exported file (Spotify data export, CSV, text). */
+    fun importLikesFile(uri: Uri) = runTask("Reading file…") {
+        val resolver = app.contentResolver
+        val name = resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: "Imported list"
+        val bytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            resolver.openInputStream(uri)?.use { it.readBytes() }
+        } ?: throw java.io.IOException("Couldn't open that file")
+        val parsed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            TrackListParser.parseFile(name, bytes)
+        }
+        saveParsed(parsed)
+    }
+
+    /** Imports a pasted list, one "Artist - Title" per line. */
+    fun importPastedList(name: String, text: String) {
+        val entries = TrackListParser.parseLines(text)
+        if (entries.isEmpty()) {
+            say("That list is empty")
+            return
+        }
+        saveParsed(TrackListParser.Result(name.ifBlank { "Pasted list" }, PlaylistSource.LIST, entries))
+    }
+
+    private fun saveParsed(parsed: TrackListParser.Result) {
+        if (parsed.source == PlaylistSource.SPOTIFY) {
+            app.playlists.upsertImported(PlaylistSource.SPOTIFY, parsed.name, parsed.entries)
+        } else {
+            app.playlists.createImported(parsed.name, parsed.source, parsed.entries)
+        }
+        val index = TrackMatcher.Index(library.value.songs)
+        val onDevice = parsed.entries.count { index.find(it.title, it.artist, it.durationMs) != null }
+        say("Imported “${parsed.name}”: ${parsed.entries.size} songs, $onDevice already on your phone. It's in Playlists.")
     }
 
     private fun saveImport(source: PlaylistSource, name: String, tracks: List<ExternalTrack>) {
@@ -223,6 +303,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun say(message: String) {
-        _messages.tryEmit(message)
+        _messages.tryEmit(UiMessage(message))
     }
 }

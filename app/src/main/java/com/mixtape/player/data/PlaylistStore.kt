@@ -21,6 +21,7 @@ enum class PlaylistSource(val label: String) {
     SPOTIFY("Spotify"),
     YOUTUBE("YouTube"),
     SOUNDCLOUD("SoundCloud"),
+    LIST("Imported list"),
 }
 
 /**
@@ -71,6 +72,13 @@ class PlaylistStore(context: Context) {
 
     fun removeAt(id: String, position: Int) = update(id) { p ->
         p.copy(entries = p.entries.filterIndexed { i, _ -> i != position })
+    }
+
+    /** Adds a song list imported from a file or pasted text. */
+    fun createImported(name: String, source: PlaylistSource, entries: List<PlaylistEntry>): String {
+        val id = UUID.randomUUID().toString()
+        mutate { it + Playlist(id, name, source, entries, now()) }
+        return id
     }
 
     /** Replaces the previous import from the same service. */

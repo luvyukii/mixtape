@@ -26,7 +26,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -74,6 +78,8 @@ class PlatformActions(
     val pickFolder: () -> Unit,
     val requestPermission: () -> Unit,
     val importYouTube: () -> Unit,
+    val deleteSongs: (List<Song>) -> Unit,
+    val pickLikesFile: () -> Unit,
 )
 
 @Composable
@@ -92,17 +98,33 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
     val smartShuffle by vm.smartShuffle.collectAsStateWithLifecycle()
     val accounts by vm.accounts.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
+    val hiddenIds by vm.hiddenIds.collectAsStateWithLifecycle()
 
     var tab by rememberSaveable { mutableStateOf(Tab.Library) }
     val stack = remember { mutableStateListOf<Detail>() }
     var nowPlayingOpen by rememberSaveable { mutableStateOf(false) }
     var addToPlaylist by remember { mutableStateOf<List<Song>?>(null) }
+    var confirmDelete by remember { mutableStateOf<Song?>(null) }
+    var longMessage by remember { mutableStateOf<String?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val matcher = remember(library) { TrackMatcher.Index(library.songs) }
     val currentId = playback.current?.id
 
     LaunchedEffect(Unit) {
-        vm.messages.collect { snackbar.showSnackbar(it) }
+        vm.messages.collect { msg ->
+            // Long explanations (like setup errors) get a dialog so they aren't cut off.
+            if (msg.actionLabel == null && msg.text.length > 110) {
+                longMessage = msg.text
+                return@collect
+            }
+            val result = snackbar.showSnackbar(
+                message = msg.text,
+                actionLabel = msg.actionLabel,
+                withDismissAction = msg.actionLabel == null && msg.text.length > 60,
+                duration = if (msg.actionLabel != null || msg.text.length > 60) SnackbarDuration.Long else SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed) msg.action?.invoke()
+        }
     }
 
     BackHandler(enabled = nowPlayingOpen || stack.isNotEmpty()) {
@@ -114,6 +136,8 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
             playNext = vm::playNext,
             addToQueue = vm::addToQueue,
             addToPlaylist = { addToPlaylist = listOf(it) },
+            hide = vm::hideSong,
+            delete = { confirmDelete = it },
         )
     }
     val play: (List<Song>, Int) -> Unit = { songs, i -> vm.play(songs, i); nowPlayingOpen = false }
@@ -181,8 +205,11 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                                 onCreate = { vm.createPlaylist(it) },
                             )
                             Tab.Settings -> SettingsScreen(
-                                library, crossfadeMs, smartShuffle, accounts, busy != null,
+                                library, crossfadeMs, smartShuffle, accounts, hiddenIds.size, busy != null,
                                 SettingsActions(
+                                    onImportFile = platform.pickLikesFile,
+                                    onPasteList = vm::importPastedList,
+                                    onUnhideAll = vm::unhideAll,
                                     onCrossfadeSeconds = vm::setCrossfadeSeconds,
                                     onSmartShuffle = vm::setSmartShuffle,
                                     onAddFiles = platform.pickFiles,
@@ -270,6 +297,26 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                 )
             }
         }
+    }
+
+    longMessage?.let { text ->
+        AlertDialog(
+            onDismissRequest = { longMessage = null },
+            text = { Text(text) },
+            confirmButton = { TextButton(onClick = { longMessage = null }) { Text("OK") } },
+        )
+    }
+
+    confirmDelete?.let { song ->
+        AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            title = { Text("Delete “${song.title}”?") },
+            text = { Text("This permanently deletes the music file from your phone. To just stop seeing it, use “Hide from library” instead.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = null; platform.deleteSongs(listOf(song)) }) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("Cancel") } },
+        )
     }
 
     addToPlaylist?.let { songs ->

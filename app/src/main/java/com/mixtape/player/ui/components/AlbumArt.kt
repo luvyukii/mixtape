@@ -13,8 +13,11 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,13 +46,17 @@ fun AlbumArt(
 ) {
     val context = LocalContext.current
     val key = song?.let { "${it.albumId}:$sizePx" }
-    val bitmap by produceState<Bitmap?>(initialValue = key?.let { cache.get(it) }, key) {
-        if (song == null || key == null || value != null || key in missing) return@produceState
+    // Keyed on the song's album, so a new song always starts from its own art (or the
+    // placeholder) instead of keeping the previous song's picture.
+    var bitmap by remember(key) { mutableStateOf(key?.let { cache.get(it) }) }
+
+    LaunchedEffect(key) {
+        if (song == null || key == null || bitmap != null || key in missing) return@LaunchedEffect
         val loaded = withContext(Dispatchers.IO) {
             runCatching { context.contentResolver.loadThumbnail(song.uri, Size(sizePx, sizePx), null) }.getOrNull()
         }
         if (loaded != null) cache.put(key, loaded) else missing += key
-        value = loaded
+        bitmap = loaded
     }
 
     Box(

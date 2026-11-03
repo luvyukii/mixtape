@@ -8,6 +8,10 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.app.RecoverableSecurityException
+import android.provider.MediaStore
+import androidx.activity.result.IntentSenderRequest
+import com.mixtape.player.data.Song
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -37,6 +41,24 @@ class MainActivity : ComponentActivity() {
             if (uris.isNotEmpty()) vm.importFiles(uris)
         }
 
+    /** Android's own "Allow Mixtape to delete this file?" confirmation. */
+    private val deleteConfirm =
+        registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            val songs = vm.pendingDelete
+            vm.pendingDelete = emptyList()
+            if (result.resultCode != RESULT_OK || songs.isEmpty()) return@registerForActivityResult
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                vm.onSongsDeleted(songs) // Android already deleted them
+            } else {
+                deleteSongs(songs) // Android 10 granted access; now delete for real
+            }
+        }
+
+    private val pickLikesFile =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            uri?.let(vm::importLikesFile)
+        }
+
     private val pickFolder =
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             uri?.let(vm::importFolder)
@@ -57,6 +79,8 @@ class MainActivity : ComponentActivity() {
             pickFolder = { pickFolder.launch(null) },
             requestPermission = ::askForPermissions,
             importYouTube = { vm.importYouTubeLikes { youTubeAuth.accessToken() } },
+            deleteSongs = ::deleteSongs,
+            pickLikesFile = { pickLikesFile.launch(arrayOf("*/*")) },
         )
         setContent {
             MixtapeTheme {
@@ -104,6 +128,35 @@ class MainActivity : ComponentActivity() {
         val wanted = mutableListOf(audioPermission())
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) wanted += Manifest.permission.POST_NOTIFICATIONS
         permissionLauncher.launch(wanted.toTypedArray())
+    }
+
+    private fun deleteSongs(songs: List<Song>) {
+        if (songs.isEmpty()) return
+        vm.pendingDelete = songs
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val request = MediaStore.createDeleteRequest(contentResolver, songs.map { it.uri })
+            deleteConfirm.launch(IntentSenderRequest.Builder(request.intentSender).build())
+            return
+        }
+        // Android 10: files Mixtape created can be deleted directly; others need permission.
+        val deleted = ArrayList<Song>()
+        for (song in songs) {
+            try {
+                contentResolver.delete(song.uri, null, null)
+                deleted += song
+            } catch (e: RecoverableSecurityException) {
+                vm.pendingDelete = songs - deleted.toSet()
+                if (deleted.isNotEmpty()) vm.onSongsDeleted(deleted)
+                deleteConfirm.launch(IntentSenderRequest.Builder(e.userAction.actionIntent.intentSender).build())
+                return
+            } catch (e: SecurityException) {
+                vm.pendingDelete = emptyList()
+                vm.showMessage("Android didn't allow deleting “${song.title}”")
+                return
+            }
+        }
+        vm.pendingDelete = emptyList()
+        vm.onSongsDeleted(deleted)
     }
 
     private fun openUrl(url: String) {
