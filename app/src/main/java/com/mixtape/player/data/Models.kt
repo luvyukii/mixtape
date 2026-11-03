@@ -31,6 +31,9 @@ data class Song(
 ) {
     val artUri: Uri get() = ContentUris.withAppendedId(ALBUM_ART_BASE, artId)
 
+    /** "Artist · Album", leaving out the album when the song has none. */
+    val artistAndAlbum: String get() = if (album.isBlank()) artist else "$artist · $album"
+
     /** This song with your edits applied. An edited album gets its own grouping id. */
     fun withEdit(e: SongEdit): Song {
         val newArtist = e.artist ?: artist

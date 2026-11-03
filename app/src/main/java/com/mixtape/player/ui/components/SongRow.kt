@@ -109,7 +109,7 @@ fun SongRow(
     actions: SongActions,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    supporting: String = "${song.artist} · ${song.album}",
+    supporting: String = song.artistAndAlbum,
     onRemove: (() -> Unit)? = null,
     removeLabel: String = "Remove from playlist",
 ) {

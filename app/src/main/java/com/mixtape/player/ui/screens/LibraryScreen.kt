@@ -140,7 +140,7 @@ private fun SongsTab(
             SongSort.Title -> songs
             SongSort.Artist -> songs.sortedWith(compareBy<Song>({ it.primaryArtist.lowercase() }, { it.album.lowercase() }, { it.track }))
             SongSort.Recent -> songs.sortedByDescending { it.dateAdded }
-            SongSort.Album -> songs.sortedWith(compareBy<Song>({ it.album.lowercase() }, { it.track }))
+            SongSort.Album -> songs.sortedWith(compareBy<Song>({ it.album.isBlank() }, { it.album.lowercase() }, { it.track }))
         }
     }
     SideEffect { actions.selection.pool = sorted }

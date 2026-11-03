@@ -8,7 +8,8 @@ package com.mixtape.player.data
 object LibraryOrganizer {
 
     const val UNKNOWN_ARTIST = "Unknown artist"
-    const val UNKNOWN_ALBUM = "Unknown album"
+    /** Songs with no album tag have a blank album, which is never shown. */
+    const val UNKNOWN_ALBUM = ""
     const val UNKNOWN_GENRE = "Unknown genre"
 
     private val featSplit = Regex(
@@ -31,7 +32,7 @@ object LibraryOrganizer {
         val byTitle = songs.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
         val albumOrder = compareBy<Song>({ it.track }, { it.title.lowercase() })
 
-        val albums = songs.groupBy { it.albumId }.map { (id, list) ->
+        val albums = songs.filter { it.album.isNotBlank() }.groupBy { it.albumId }.map { (id, list) ->
             Album(
                 id = id,
                 title = list.first().album,
@@ -42,7 +43,7 @@ object LibraryOrganizer {
         }.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
 
         val artists = groupNamed(songs) { it.primaryArtist }.map { g ->
-            val albumCount = g.songs.map { it.albumId }.distinct().size
+            val albumCount = g.songs.filter { it.album.isNotBlank() }.map { it.albumId }.distinct().size
             g.copy(subtitle = "${plural(g.songs.size, "song")} · ${plural(albumCount, "album")}")
         }
         val genres = groupNamed(songs) { it.genre }.map { g ->

@@ -73,7 +73,7 @@ fun CollectionScreen(
             SongRow(
                 song, song.id == currentSongId, actions,
                 onClick = { onPlay(songs, i) },
-                supporting = if (showTrackArtist) "${song.artist} · ${song.album}" else song.album,
+                supporting = if (showTrackArtist) song.artistAndAlbum else song.album,
             )
         }
         extraItems()

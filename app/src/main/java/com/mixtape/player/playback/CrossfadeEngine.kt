@@ -612,7 +612,7 @@ fun Song.toMediaItem(): MediaItem =
             MediaMetadata.Builder()
                 .setTitle(title)
                 .setArtist(artist)
-                .setAlbumTitle(album)
+                .setAlbumTitle(album.ifBlank { null })
                 .setArtworkUri(artUri)
                 .build()
         )

@@ -254,7 +254,7 @@ private fun InfoBlock(state: PlaybackState, crossfadeMs: Int, analyzer: AudioAna
         )
         Spacer(Modifier.height(2.dp))
         Text(
-            song?.let { "${it.artist}  ·  ${it.album}" } ?: "",
+            song?.let { if (it.album.isBlank()) it.artist else "${it.artist}  ·  ${it.album}" } ?: "",
             style = MaterialTheme.typography.bodyMedium,
             color = Tac.GreenMid,
             maxLines = 1,
