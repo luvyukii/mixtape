@@ -318,6 +318,7 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
             Surface(Modifier.fillMaxSize()) {
                 NowPlayingScreen(
                     state = playback,
+                    analyzer = vm.engine.analyzer,
                     crossfadeMs = crossfadeMs,
                     onClose = { nowPlayingOpen = false },
                     onTogglePlay = vm::togglePlay,

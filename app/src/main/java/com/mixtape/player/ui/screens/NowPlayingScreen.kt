@@ -52,7 +52,11 @@ import com.mixtape.player.playback.PlaybackState
 import com.mixtape.player.playback.RepeatMode
 import com.mixtape.player.ui.components.AlbumArt
 import com.mixtape.player.ui.components.SegmentMeter
-import com.mixtape.player.ui.components.SignalBars
+import com.mixtape.player.playback.AudioAnalyzer
+import com.mixtape.player.ui.components.AudioVisualizer
+import com.mixtape.player.ui.components.VisMode
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.mixtape.player.ui.components.TacButtonShape
 import com.mixtape.player.ui.components.TacLabel
 import com.mixtape.player.ui.components.cornerBrackets
@@ -62,6 +66,7 @@ import com.mixtape.player.ui.theme.Tac
 @Composable
 fun NowPlayingScreen(
     state: PlaybackState,
+    analyzer: AudioAnalyzer,
     crossfadeMs: Int,
     onClose: () -> Unit,
     onTogglePlay: () -> Unit,
@@ -75,6 +80,9 @@ fun NowPlayingScreen(
     onRemoveFromQueue: (Int) -> Unit,
 ) {
     val song = state.current
+    // 0 = cover art, then each visualizer mode. Tap the frame to cycle.
+    var view by rememberSaveable { mutableIntStateOf(0) }
+    val visMode = VisMode.entries.getOrNull(view - 1)
     LazyColumn(
         Modifier
             .fillMaxSize()
@@ -118,10 +126,30 @@ fun NowPlayingScreen(
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .cornerBrackets(inset = 0.dp, length = 22.dp)
+                    .clickable { view = (view + 1) % (VisMode.entries.size + 1) }
                     .padding(10.dp)
                     .border(1.dp, Tac.GreenFaint),
             ) {
-                AlbumArt(song, Modifier.fillMaxSize(), sizePx = 1000, shape = MaterialTheme.shapes.extraSmall)
+                if (visMode == null) {
+                    AlbumArt(song, Modifier.fillMaxSize(), sizePx = 1000, shape = MaterialTheme.shapes.extraSmall)
+                } else {
+                    AudioVisualizer(
+                        analyzer,
+                        visMode,
+                        Modifier
+                            .fillMaxSize()
+                            .background(Tac.Black)
+                            .padding(8.dp),
+                    )
+                }
+                Text(
+                    " ${visMode?.label ?: "ART"} ▸ ",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Tac.Black,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .background(Tac.Green.copy(alpha = 0.85f)),
+                )
             }
         }
 
@@ -155,7 +183,12 @@ fun NowPlayingScreen(
                     maxLines = 1,
                 )
                 Spacer(Modifier.height(10.dp))
-                SignalBars(state.isPlaying, Modifier.fillMaxWidth().height(36.dp))
+                // Live mini-spectrum (hidden while the big frame already shows one).
+                if (visMode != VisMode.Spectrum) {
+                    AudioVisualizer(analyzer, VisMode.Spectrum, Modifier.fillMaxWidth().height(40.dp))
+                } else {
+                    AudioVisualizer(analyzer, VisMode.Scope, Modifier.fillMaxWidth().height(40.dp))
+                }
                 Spacer(Modifier.height(10.dp))
                 SeekBar(state.positionMs, state.durationMs, onSeek)
             }

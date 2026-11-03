@@ -11,7 +11,11 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import com.mixtape.player.data.Settings
 import com.mixtape.player.data.Song
 import kotlinx.coroutines.CoroutineScope
@@ -59,6 +63,9 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val focus = AudioFocus(appContext, ::onFocusChange)
 
+    /** Feeds the visualizer with the audio both players are producing. */
+    val analyzer = AudioAnalyzer()
+
     private val players: Array<ExoPlayer> = Array(2) { createPlayer() }
     private var activeSlot = 0
     private val active: ExoPlayer get() = players[activeSlot]
@@ -91,7 +98,7 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
     }
 
     private fun createPlayer(): ExoPlayer =
-        ExoPlayer.Builder(appContext)
+        ExoPlayer.Builder(appContext, renderersWithAnalyzer())
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -102,6 +109,19 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
             .setHandleAudioBecomingNoisy(true) // pause when headphones are unplugged
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
+
+    /** Routes a copy of the decoded audio through [analyzer] before it reaches the speaker. */
+    private fun renderersWithAnalyzer() = object : DefaultRenderersFactory(appContext) {
+        override fun buildAudioSink(
+            context: Context,
+            enableFloatOutput: Boolean,
+            enableAudioTrackPlaybackParams: Boolean,
+        ): AudioSink = DefaultAudioSink.Builder(context)
+            .setAudioProcessors(arrayOf(TeeAudioProcessor(analyzer)))
+            .setEnableFloatOutput(enableFloatOutput)
+            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+            .build()
+    }
 
     private fun listenerFor(p: ExoPlayer) = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
