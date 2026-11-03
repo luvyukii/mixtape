@@ -90,7 +90,7 @@ fun PlaylistDetailScreen(
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Playlist options") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        if (isLocal) {
+                        if (isLocal || playlist.source == PlaylistSource.LIST) {
                             DropdownMenuItem(
                                 text = { Text("Rename") },
                                 leadingIcon = { Icon(Icons.Rounded.Edit, null) },
@@ -147,10 +147,10 @@ fun PlaylistDetailScreen(
                 SongRow(
                     song, song.id == currentSongId, actions,
                     onClick = { onPlay(playable, playable.indexOf(song).coerceAtLeast(0)) },
-                    onRemove = if (isLocal) ({ onRemove(r.position) }) else null,
+                    onRemove = { onRemove(r.position) },
                 )
             } else {
-                MissingRow(r.entry, playlist.source, busy, onOpenUrl, onDownload, onRemove = if (isLocal) ({ onRemove(r.position) }) else null)
+                MissingRow(r.entry, playlist.source, busy, onOpenUrl, onDownload, onRemove = { onRemove(r.position) })
             }
         }
     }
@@ -195,7 +195,7 @@ private fun MissingRow(
                     }
                 }
                 if (onRemove != null) {
-                    IconButton(onClick = onRemove) { Icon(Icons.Rounded.Delete, "Remove") }
+                    IconButton(onClick = onRemove) { Icon(Icons.Rounded.Delete, "Remove from this list") }
                 }
             }
         },

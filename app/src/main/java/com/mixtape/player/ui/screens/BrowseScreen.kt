@@ -57,16 +57,17 @@ enum class BrowseSite(
     val source: PlaylistSource,
     /** Hosts allowed inside the in-app browser; anything else opens in your normal browser. */
     val hosts: List<String>,
-    /** Spotify's web player only runs with a desktop browser identity. */
+    /** Load the full desktop site (Spotify's player and SoundCloud's downloads need it). */
     val desktop: Boolean,
 ) {
     YouTube(
         "YouTube", "https://m.youtube.com", PlaylistSource.YOUTUBE,
         listOf("youtube.com", "youtu.be", "google.com", "gstatic.com", "googlevideo.com", "ytimg.com"), false,
     ),
+    // SoundCloud's mobile site hides the "Download file" option, so use the full site.
     SoundCloud(
-        "SoundCloud", "https://m.soundcloud.com", PlaylistSource.SOUNDCLOUD,
-        listOf("soundcloud.com", "sndcdn.com", "soundcloud.cloud"), false,
+        "SoundCloud", "https://soundcloud.com", PlaylistSource.SOUNDCLOUD,
+        listOf("soundcloud.com", "sndcdn.com", "soundcloud.cloud"), true,
     ),
     Bandcamp(
         "Bandcamp", "https://bandcamp.com", PlaylistSource.LIST,
@@ -135,6 +136,15 @@ fun BrowseScreen(
                 else onSaveToWishlist(parsed.first, parsed.second, view.url.orEmpty(), site.source)
             }) { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, "Save this song to your Wishlist") }
             IconButton(onClick = { state.views[site]?.reload() }) { Icon(Icons.Rounded.Refresh, "Reload") }
+        }
+        if (site == BrowseSite.SoundCloud) {
+            Text(
+                "To download: sign in with email, open a track, tap ••• (More) → Download file. " +
+                    "Only shows when the artist allows downloads.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+            )
         }
         if (state.progress < 100) {
             LinearProgressIndicator(progress = { state.progress / 100f }, modifier = Modifier.fillMaxWidth())
