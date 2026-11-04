@@ -35,6 +35,7 @@ class SettingsActions(
     val onCrossfadeSeconds: (Int) -> Unit,
     val onSmartShuffle: (Boolean) -> Unit,
     val onBootAnim: (Boolean) -> Unit,
+    val onGlobe: (Boolean) -> Unit,
     val onScanlines: (Boolean) -> Unit,
     val onAddFiles: () -> Unit,
     val onAddFolder: () -> Unit,
@@ -52,6 +53,7 @@ fun SettingsScreen(
     boostDb: Int,
     hiRes: Boolean,
     bootAnim: Boolean,
+    globe: Boolean,
     actions: SettingsActions,
 ) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
@@ -78,6 +80,7 @@ fun SettingsScreen(
 
             Section("Display", Glyphs.Screen) {
                 SwitchRow("Startup animation", "Boot sequence when NEXUS opens (tap to skip it)", bootAnim, actions.onBootAnim)
+                SwitchRow("Background globe", "A faded wireframe globe turning in the corner", globe, actions.onGlobe)
                 SwitchRow("CRT scanlines", "Faint lines across the screen and a dark vignette", scanlines, actions.onScanlines)
             }
 

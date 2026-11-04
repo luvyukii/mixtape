@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.mixtape.player.playback.PlaybackState
 import com.mixtape.player.ui.components.AlbumArt
 import com.mixtape.player.ui.components.formatTime
+import com.mixtape.player.ui.components.swipeVertical
 import com.mixtape.player.ui.theme.Tac
 
 @Composable
@@ -36,6 +37,7 @@ fun MiniPlayer(state: PlaybackState, onOpen: () -> Unit, onTogglePlay: () -> Uni
         Modifier
             .fillMaxWidth()
             .background(Tac.Panel)
+            .swipeVertical(down = false, threshold = 30.dp, onSwipe = onOpen)
             .clickable(onClick = onOpen)
     ) {
         // Progress as a hairline along the top edge

@@ -74,6 +74,7 @@ import com.mixtape.player.ui.components.TacButtonShape
 import com.mixtape.player.ui.components.TacLabel
 import com.mixtape.player.ui.components.VisMode
 import com.mixtape.player.ui.components.cornerBrackets
+import com.mixtape.player.ui.components.swipeVertical
 import com.mixtape.player.ui.components.formatTime
 import com.mixtape.player.ui.theme.Tac
 
@@ -116,7 +117,6 @@ fun NowPlayingScreen(
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
-            .background(Tac.Black)
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
@@ -134,6 +134,7 @@ fun NowPlayingScreen(
                     ArtFrame(
                         state, analyzer, view, { view = it },
                         Modifier
+                            .swipeVertical(down = true, threshold = 80.dp, onSwipe = actions.onClose)
                             .padding(horizontal = 24.dp, vertical = 8.dp)
                             .fillMaxHeight()
                             .aspectRatio(1f, matchHeightConstraintsFirst = true)
@@ -162,6 +163,7 @@ fun NowPlayingScreen(
                     ArtFrame(
                         state, analyzer, view, { view = it },
                         Modifier
+                            .swipeVertical(down = true, threshold = 80.dp, onSwipe = actions.onClose)
                             .padding(horizontal = 40.dp, vertical = 20.dp)
                             .widthIn(max = 420.dp)
                             .fillMaxWidth()
@@ -180,7 +182,13 @@ fun NowPlayingScreen(
 
 @Composable
 private fun TopStrip(state: PlaybackState, onClose: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .swipeVertical(down = true, threshold = 60.dp, onSwipe = onClose)
+            .padding(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         IconButton(onClick = onClose) { Icon(Icons.Rounded.KeyboardArrowDown, "Close player", tint = Tac.GreenMid) }
         Text(
             "NOW PLAYING",

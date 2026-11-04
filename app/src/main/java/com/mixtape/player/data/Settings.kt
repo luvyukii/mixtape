@@ -32,6 +32,10 @@ class Settings(context: Context) {
     val hiRes: StateFlow<Boolean> = _hiRes.asStateFlow()
     fun setHiRes(on: Boolean) { prefs.edit { putBoolean(K_HIRES, on) }; _hiRes.value = on }
 
+    private val _globe = MutableStateFlow(prefs.getBoolean(K_GLOBE, true))
+    val globe: StateFlow<Boolean> = _globe.asStateFlow()
+    fun setGlobe(on: Boolean) { prefs.edit { putBoolean(K_GLOBE, on) }; _globe.value = on }
+
     private val _bootAnim = MutableStateFlow(prefs.getBoolean(K_BOOT, true))
     val bootAnim: StateFlow<Boolean> = _bootAnim.asStateFlow()
     fun setBootAnim(on: Boolean) { prefs.edit { putBoolean(K_BOOT, on) }; _bootAnim.value = on }
@@ -70,6 +74,7 @@ class Settings(context: Context) {
         const val MAX_BOOST_DB = 10
         private const val K_BOOST = "audio.boostDb"
         private const val K_BOOT = "ui.bootAnim"
+        private const val K_GLOBE = "ui.globe"
         private const val K_HIRES = "audio.hiRes"
 
         private const val K_CROSSFADE = "crossfade_ms"

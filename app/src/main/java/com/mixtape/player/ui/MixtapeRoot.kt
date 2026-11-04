@@ -30,6 +30,12 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.CompositionLocalProvider
 import com.mixtape.player.ui.components.TacHeader
 import com.mixtape.player.ui.components.Glyphs
+import com.mixtape.player.ui.components.GlobeBackdrop
+import com.mixtape.player.ui.components.ScanSweep
+import com.mixtape.player.ui.components.crtPower
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import com.mixtape.player.ui.components.pixelCover
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -146,6 +152,7 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
     val boostDb by vm.boostDb.collectAsStateWithLifecycle()
     val hiRes by vm.hiRes.collectAsStateWithLifecycle()
     val bootAnim by vm.bootAnim.collectAsStateWithLifecycle()
+    val globe by vm.globe.collectAsStateWithLifecycle()
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     var editing by remember { mutableStateOf<List<Song>?>(null) }
     var longMessage by remember { mutableStateOf<String?>(null) }
@@ -213,6 +220,16 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
         cover.animateTo(0f, tween(200, easing = LinearEasing))
     }
 
+    // Player opens and closes like an old CRT powering on and off.
+    val showPlayer = nowPlayingOpen && playback.current != null
+    val crt = remember { Animatable(0f) }
+    LaunchedEffect(showPlayer) {
+        crt.animateTo(
+            if (showPlayer) 1f else 0f,
+            tween(if (showPlayer) 460 else 340, easing = LinearEasing),
+        )
+    }
+
     val selectTab: (Int) -> Unit = { i ->
         tab = Tab.entries[i]
         stack.clear()
@@ -235,8 +252,17 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
             .scanlines(scanlines)
     ) {
+        if (globe) {
+            GlobeBackdrop(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 70.dp, y = 10.dp)
+                    .size(260.dp)
+                    .graphicsLayer { alpha = 0.16f }
+            )
+        }
         Scaffold(
-            containerColor = Tac.Black,
+            containerColor = Color.Transparent,
             snackbarHost = { SnackbarHost(snackbar) { TacSnackbar(it) } },
             topBar = {
                 if (selection.active) {
@@ -300,7 +326,7 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                             )
                             Tab.Settings -> SettingsScreen(
                                 library, crossfadeMs, smartShuffle, scanlines, hiddenIds.size, busy != null,
-                                boostDb, hiRes, bootAnim,
+                                boostDb, hiRes, bootAnim, globe,
                                 SettingsActions(
                                     onBoostDb = vm::setBoostDb,
                                     onHiRes = vm::setHiRes,
@@ -308,6 +334,7 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                                     onCrossfadeSeconds = vm::setCrossfadeSeconds,
                                     onSmartShuffle = vm::setSmartShuffle,
                                     onBootAnim = vm::setBootAnim,
+                                    onGlobe = vm::setGlobe,
                                     onScanlines = vm::setScanlines,
                                     onAddFiles = platform.pickFiles,
                                     onAddFolder = platform.pickFolder,
@@ -362,12 +389,24 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
             }
         }
 
-        AnimatedVisibility(
-            visible = nowPlayingOpen && playback.current != null,
-            enter = slideInVertically { it },
-            exit = slideOutVertically { it },
-        ) {
-            Surface(Modifier.fillMaxSize().scanlines(scanlines), color = Tac.Black) {
+        if (crt.value > 0f || showPlayer) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .crtPower({ crt.value })
+                    .background(Tac.Black)
+                    .scanlines(scanlines)
+            ) {
+                ScanSweep(Modifier.fillMaxSize())
+                if (globe) {
+                    GlobeBackdrop(
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = 70.dp, y = 10.dp)
+                            .size(260.dp)
+                            .graphicsLayer { alpha = 0.12f }
+                    )
+                }
                 NowPlayingScreen(
                     state = playback,
                     analyzer = vm.engine.analyzer,

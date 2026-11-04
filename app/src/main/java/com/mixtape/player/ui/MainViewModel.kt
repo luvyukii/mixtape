@@ -52,6 +52,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         say(if (on) "Hi-res output turns on next time NEXUS starts" else "Hi-res output turns off next time NEXUS starts")
     }
     fun moveInQueue(from: Int, to: Int) = engine.moveInQueue(from, to)
+    val globe = settings.globe
+    fun setGlobe(on: Boolean) = settings.setGlobe(on)
     val bootAnim = settings.bootAnim
     fun setBootAnim(on: Boolean) = settings.setBootAnim(on)
     val scanlines = settings.scanlines
