@@ -50,6 +50,8 @@ import com.mixtape.player.data.LookupMatch
 import com.mixtape.player.data.MusicBrainz
 import com.mixtape.player.data.Song
 import com.mixtape.player.data.SongEdit
+import com.mixtape.player.data.TitleCleaner
+import androidx.compose.material.icons.rounded.Search
 import com.mixtape.player.ui.components.TacOutlinedButton
 import com.mixtape.player.ui.components.TacSwitch
 import com.mixtape.player.ui.components.formatTime
@@ -96,24 +98,33 @@ fun EditInfoDialog(
     var lookupOpen by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
     var lookupError by remember { mutableStateOf<String?>(null) }
-    var matches by remember { mutableStateOf<List<LookupMatch>>(emptyList()) }
+    var matches by remember { mutableStateOf<List<MusicBrainz.Ranked>>(emptyList()) }
+    var step by remember { mutableStateOf("") }
+    // What to look up; starts from the cleaned-up title and artist, and can be edited.
+    var lookupText by remember {
+        mutableStateOf(
+            TitleCleaner.guesses(first.title, first.artist).firstOrNull()
+                ?.let { g -> if (g.artist.isBlank()) g.title else "${g.artist} - ${g.title}" }
+                ?: first.title
+        )
+    }
     var artwork by remember { mutableStateOf<LookupMatch?>(null) }
     val scope = rememberCoroutineScope()
 
-    fun runLookup() {
+    /** First search uses the fields; later ones use the editable lookup text ("Artist - Title"). */
+    fun runLookup(useText: Boolean) {
         lookupOpen = true
         searching = true
         lookupError = null
         matches = emptyList()
-        // If the tags are bare, try "Artist - Title" from the title text.
-        val (t, a) = if (artist.isBlank() && title.contains(" - ")) {
-            title.substringAfter(" - ") to title.substringBefore(" - ")
-        } else title to artist
+        val (t, a) = if (useText) lookupText to "" else title to artist
         scope.launch {
             try {
-                matches = MusicBrainz.search(t, a)
-                    .sortedBy { m -> if (first.durationMs > 0 && m.durationMs > 0) abs(m.durationMs - first.durationMs) / 4000 else 5 }
-                if (matches.isEmpty()) lookupError = "No matches. Try fixing the title or artist above, then search again."
+                matches = MusicBrainz.findMatches(t, a, first.durationMs) { i, n -> step = "SEARCH $i/$n" }
+                if (matches.isEmpty()) {
+                    lookupError = "Not found. Edit the text above (Artist - Title) and search again. " +
+                        "Uploads that were never officially released aren't in the database."
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -163,11 +174,33 @@ fun EditInfoDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 if (single) {
-                    TacOutlinedButton(onClick = { runLookup() }, enabled = !searching, modifier = Modifier.fillMaxWidth()) {
-                        Text(if (lookupOpen) "SEARCH AGAIN" else "AUTO-FILL ONLINE")
-                    }
-                    if (lookupOpen) {
-                        LookupPanel(first, searching, lookupError, matches, onPick = ::apply, onClose = { lookupOpen = false })
+                    if (!lookupOpen) {
+                        TacOutlinedButton(onClick = { runLookup(useText = false) }, enabled = !searching, modifier = Modifier.fillMaxWidth()) {
+                            Text("AUTO-FILL ONLINE")
+                        }
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = lookupText,
+                                onValueChange = { lookupText = it },
+                                label = { Text("LOOK UP  (ARTIST - TITLE)", style = MaterialTheme.typography.labelSmall) },
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodySmall,
+                                shape = MaterialTheme.shapes.extraSmall,
+                                modifier = Modifier.weight(1f),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Tac.Bright.copy(alpha = 0.6f),
+                                    unfocusedBorderColor = Tac.GreenDim,
+                                    focusedTextColor = Tac.Green,
+                                    unfocusedTextColor = Tac.Green,
+                                    cursorColor = Tac.Bright,
+                                ),
+                            )
+                            IconButton(onClick = { runLookup(useText = true) }, enabled = !searching && lookupText.isNotBlank()) {
+                                Icon(Icons.Rounded.Search, "Search", tint = Tac.Green)
+                            }
+                        }
+                        LookupPanel(first, searching, step, lookupError, matches, onPick = ::apply, onClose = { lookupOpen = false })
                     }
                     artwork?.let { m ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -231,8 +264,9 @@ fun EditInfoDialog(
 private fun LookupPanel(
     song: Song,
     searching: Boolean,
+    step: String,
     error: String?,
-    matches: List<LookupMatch>,
+    matches: List<MusicBrainz.Ranked>,
     onPick: (LookupMatch) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -244,7 +278,12 @@ private fun LookupPanel(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("MATCHES", style = MaterialTheme.typography.labelSmall, color = Tac.GreenMid, modifier = Modifier.weight(1f))
+            Text(
+                if (searching) step.ifBlank { "SEARCHING" } else "MATCHES  ${matches.size}",
+                style = MaterialTheme.typography.labelSmall,
+                color = Tac.GreenMid,
+                modifier = Modifier.weight(1f),
+            )
             if (song.durationMs > 0) {
                 Text("YOURS ${formatTime(song.durationMs)}", style = MaterialTheme.typography.labelSmall, color = Tac.GreenDim)
             }
@@ -254,7 +293,8 @@ private fun LookupPanel(
         }
         if (searching) LinearProgressIndicator(Modifier.fillMaxWidth().height(1.dp), color = Tac.Bright, trackColor = Tac.GreenFaint)
         error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Tac.Amber) }
-        matches.forEach { m ->
+        matches.forEach { r ->
+            val m = r.match
             val close = song.durationMs > 0 && m.durationMs > 0 && abs(m.durationMs - song.durationMs) <= 3000
             Row(
                 Modifier
@@ -266,7 +306,30 @@ private fun LookupPanel(
                 CoverThumb(m, 40)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(m.title, style = MaterialTheme.typography.bodySmall, color = Tac.Green, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            m.title,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Tac.Green,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            when {
+                                r.confidence >= 85 -> "STRONG"
+                                r.confidence >= 65 -> "LIKELY"
+                                else -> "${r.confidence}%"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = when {
+                                r.confidence >= 85 -> Tac.Bright
+                                r.confidence >= 65 -> Tac.Green
+                                else -> Tac.GreenDim
+                            },
+                        )
+                    }
                     Text(
                         listOf(m.artist, m.album, m.year.takeIf { it > 0 }?.toString()).filterNotNull().filter { it.isNotBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,

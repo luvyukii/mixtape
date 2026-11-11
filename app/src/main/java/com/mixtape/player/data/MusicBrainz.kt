@@ -36,13 +36,85 @@ object MusicBrainz {
     private val gate = Mutex()
     private var lastCall = 0L
 
+    /** A match with how well it fits the track (0–100). */
+    data class Ranked(val match: LookupMatch, val confidence: Int)
+
+    /**
+     * Finds the likeliest identities for a track with messy tags. Cleans the names, then tries
+     * several searches from strict to loose (stopping once there's a strong match), and ranks
+     * everything by how closely title, artist and length agree with the file.
+     */
+    suspend fun findMatches(
+        rawTitle: String,
+        rawArtist: String,
+        durationMs: Long,
+        onStep: (Int, Int) -> Unit = { _, _ -> },
+    ): List<Ranked> {
+        val guesses = TitleCleaner.guesses(rawTitle, rawArtist)
+        if (guesses.isEmpty()) return emptyList()
+
+        val queries = LinkedHashSet<String>()
+        for (g in guesses.take(2)) {
+            if (g.artist.isNotBlank()) {
+                queries += "recording:\"${escape(g.title)}\" AND artist:\"${escape(g.artist)}\""
+                queries += "recording:(${terms(g.title)}) AND artist:(${terms(g.artist)})"
+            }
+        }
+        val main = guesses.first()
+        if (durationMs > 0) {
+            queries += "recording:(${terms(main.title)}) AND dur:[${durationMs - 6000} TO ${durationMs + 6000}]"
+        }
+        queries += "recording:\"${escape(main.title)}\""
+        queries += "recording:(${terms(main.title)})"
+
+        val found = LinkedHashMap<String, Ranked>()
+        val plan = queries.filter { it.isNotBlank() }.take(5)
+        for ((i, q) in plan.withIndex()) {
+            onStep(i + 1, plan.size)
+            val results = runCatching { query(q) }.getOrElse { if (i == 0) throw it else emptyList() }
+            for (m in results) {
+                val key = "${m.releaseId}|${m.title.lowercase()}"
+                val r = Ranked(m, confidence(m, guesses, durationMs))
+                if ((found[key]?.confidence ?: -1) < r.confidence) found[key] = r
+            }
+            val best = found.values.maxOfOrNull { it.confidence } ?: 0
+            if (best >= 85) break
+        }
+        return found.values
+            .sortedByDescending { it.confidence }
+            .distinctBy { Triple(it.match.title.lowercase(), it.match.artist.lowercase(), it.match.album.lowercase()) }
+            .take(12)
+    }
+
+    private fun confidence(m: LookupMatch, guesses: List<TitleCleaner.Guess>, durationMs: Long): Int {
+        val title = guesses.maxOf { TitleCleaner.similarity(m.title, it.title) }
+        val artist = guesses.filter { it.artist.isNotBlank() }
+            .maxOfOrNull { TitleCleaner.similarity(m.artist, it.artist) }
+        val length = if (durationMs > 0 && m.durationMs > 0) {
+            1f - (kotlin.math.abs(m.durationMs - durationMs) / 15_000f).coerceAtMost(1f)
+        } else null
+        // Weigh what we know; unknown parts count as neutral.
+        var score = title * 0.5f
+        score += (artist ?: 0.55f) * 0.3f
+        score += (length ?: 0.5f) * 0.2f
+        return (score * 100).toInt().coerceIn(0, 100)
+    }
+
+    /** Words only, so Lucene's special characters never break the query. */
+    private fun terms(s: String) = TitleCleaner.normalize(s).ifBlank { escape(s) }
+
+    /** Plain lookup by title and artist (exact phrases). */
     suspend fun search(title: String, artist: String): List<LookupMatch> {
         val t = title.trim()
         if (t.isEmpty()) return emptyList()
-        val query = buildString {
+        val q = buildString {
             append("recording:\"").append(escape(t)).append('"')
             if (artist.isNotBlank()) append(" AND artist:\"").append(escape(artist.trim())).append('"')
         }
+        return query(q)
+    }
+
+    private suspend fun query(query: String): List<LookupMatch> {
         val url = "$API/recording?fmt=json&limit=15&query=" + URLEncoder.encode(query, "UTF-8")
         val json = JSONObject(String(get(url, json = true) ?: throw IOException("No response from MusicBrainz")))
         val recordings = json.optJSONArray("recordings") ?: return emptyList()
