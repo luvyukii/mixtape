@@ -75,7 +75,11 @@ object MusicBrainz {
                 .take(2)
             for (rel in picks) {
                 val media = rel.optJSONArray("media")?.optJSONObject(0)
-                val trackNo = media?.optJSONArray("track")?.optJSONObject(0)?.optString("number")?.toIntOrNull() ?: 0
+                // Search results list tracks under "track"; detailed lookups use "tracks".
+                val trackList = media?.optJSONArray("track") ?: media?.optJSONArray("tracks")
+                val trackNo = trackList?.optJSONObject(0)?.optString("number")?.toIntOrNull()
+                    ?: media?.optInt("track-offset", -1)?.takeIf { it >= 0 }?.plus(1)
+                    ?: 0
                 val disc = media?.optInt("position", 1) ?: 1
                 val relArtist = rel.optJSONArray("artist-credit")?.let { ac ->
                     (0 until ac.length()).joinToString("") { ac.getJSONObject(it).optString("name") + ac.getJSONObject(it).optString("joinphrase") }
