@@ -2,6 +2,7 @@ package com.mixtape.player.playback
 
 import android.content.Context
 import android.media.AudioManager
+import android.net.Uri
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
@@ -79,6 +80,11 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
     private var standbyIndex = -1
     private var shuffle = false
     private var repeat = RepeatMode.OFF
+
+    private val history = PlayHistory(appContext)
+    private var lastRecordedId = -1L
+    /** Seeded from the system's secure random source, so each shuffle is truly independent. */
+    private val rng = kotlin.random.Random(java.security.SecureRandom().nextLong())
 
     /** Short volume ramps on pause/resume so playback never starts or stops with a click. */
     private var rampJob: Job? = null
@@ -250,6 +256,7 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
     fun togglePlay() = if (isPlaying) pause() else play()
 
     fun next() {
+        reshuffleIfWrapping()
         val n = nextIndex(userInitiated = true) ?: return
         skipTo(n)
     }
@@ -474,6 +481,7 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
             active.play()
             return
         }
+        reshuffleIfWrapping()
         val n = nextIndex(userInitiated = false)
         when {
             n == null -> { // end of the queue
@@ -526,6 +534,7 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
         if (fadeJob != null || repeat == RepeatMode.ONE || !active.isPlaying) return
         val duration = active.duration
         if (duration == C.TIME_UNSET || duration <= 0) return
+        reshuffleIfWrapping()
         val next = nextIndex(userInitiated = false) ?: return
         val remaining = duration - active.currentPosition
         // Never fade for more than a third of either song.
@@ -563,9 +572,19 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
         }
     }
 
-    /** Shuffles, then nudges songs apart so the same artist rarely plays twice in a row. */
+    /**
+     * Shuffles with memory: songs you haven't heard recently come first, in a fully random
+     * order; songs from your recent history go to the back, the most recently heard last.
+     * Then songs are nudged apart so the same artist rarely plays twice in a row.
+     */
     private fun smartShuffle(songs: List<Song>): List<Song> {
-        val out = songs.shuffled().toMutableList()
+        val recency = history.recency()
+        // Hold back roughly the last half of the list's worth of plays.
+        val window = (songs.size / 2).coerceAtLeast(1)
+        val (heard, fresh) = songs.partition { (recency[it.id] ?: Int.MAX_VALUE) < window }
+        // Within the held-back songs, older plays come sooner; small buckets keep some randomness.
+        val tail = heard.shuffled(rng).sortedByDescending { (recency[it.id] ?: 0) / 25 }
+        val out = (fresh.shuffled(rng) + tail).toMutableList()
         if (!settings.smartShuffle.value) return out
         fun key(s: Song) = s.primaryArtist.lowercase()
         for (i in 1 until out.size) {
@@ -576,8 +595,28 @@ class CrossfadeEngine(context: Context, private val settings: Settings) {
         return out
     }
 
+    /**
+     * With shuffle and repeat-all on, reaching the end of the queue deals a fresh shuffle
+     * instead of replaying the same order.
+     */
+    private fun reshuffleIfWrapping() {
+        if (!shuffle || repeat != RepeatMode.ALL || fadeJob != null) return
+        if (index != queue.lastIndex || queue.size < 3) return
+        val current = queue[index]
+        val next = smartShuffle(original.filter { it.id != current.id })
+        queue = listOf(current) + next
+        index = 0
+        resetStandby()
+    }
+
     private fun publish() {
         val duration = active.duration
+        // Note each song in the play history once it has started.
+        val cur = queue.getOrNull(index)
+        if (cur != null && cur.id != lastRecordedId && isPlaying) {
+            lastRecordedId = cur.id
+            history.record(cur.id)
+        }
         _state.value = PlaybackState(
             queue = queue,
             index = index,
@@ -613,7 +652,7 @@ fun Song.toMediaItem(): MediaItem =
                 .setTitle(title)
                 .setArtist(artist)
                 .setAlbumTitle(album.ifBlank { null })
-                .setArtworkUri(artUri)
+                .setArtworkUri(artOverride?.let { Uri.fromFile(java.io.File(it)) } ?: artUri)
                 .build()
         )
         .build()

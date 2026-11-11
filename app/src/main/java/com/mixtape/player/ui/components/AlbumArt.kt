@@ -1,6 +1,7 @@
 package com.mixtape.player.ui.components
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.util.LruCache
 import android.util.Size
 import androidx.compose.foundation.Image
@@ -36,7 +37,16 @@ private val cache = object : LruCache<String, Bitmap>((Runtime.getRuntime().maxM
 }
 private val missing: MutableSet<String> = Collections.synchronizedSet(HashSet())
 
-/** Cover art read from the song file itself, cached per album. */
+/** Loads a picture file, shrunk to about [size] pixels so lists stay light. */
+private fun decodeScaled(path: String, size: Int): Bitmap? = runCatching {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(path, bounds)
+    var sample = 1
+    while (bounds.outWidth / (sample * 2) >= size && bounds.outHeight / (sample * 2) >= size) sample *= 2
+    BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
+}.getOrNull()
+
+/** Cover art: the one picked in NEXUS if any, otherwise the picture embedded in the song file. */
 @Composable
 fun AlbumArt(
     song: Song?,
@@ -45,7 +55,7 @@ fun AlbumArt(
     shape: Shape = RoundedCornerShape(8.dp),
 ) {
     val context = LocalContext.current
-    val key = song?.let { "${it.id}:${it.modified}:$sizePx" }
+    val key = song?.let { "${it.id}:${it.modified}:${it.artOverride}:$sizePx" }
     // Keyed on the song itself: songs Android lumps into one "album" can carry different
     // pictures, so each file shows its own embedded art.
     var bitmap by remember(key) { mutableStateOf(key?.let { cache.get(it) }) }
@@ -53,7 +63,9 @@ fun AlbumArt(
     LaunchedEffect(key) {
         if (song == null || key == null || bitmap != null || key in missing) return@LaunchedEffect
         val loaded = withContext(Dispatchers.IO) {
-            runCatching { context.contentResolver.loadThumbnail(song.uri, Size(sizePx, sizePx), null) }.getOrNull()
+            val override = song.artOverride
+            if (override != null) decodeScaled(override, sizePx)
+            else runCatching { context.contentResolver.loadThumbnail(song.uri, Size(sizePx, sizePx), null) }.getOrNull()
         }
         if (loaded != null) cache.put(key, loaded) else missing += key
         bitmap = loaded

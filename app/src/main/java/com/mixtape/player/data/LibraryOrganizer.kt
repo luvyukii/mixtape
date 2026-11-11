@@ -10,7 +10,8 @@ object LibraryOrganizer {
     const val UNKNOWN_ARTIST = "Unknown artist"
     /** Songs with no album tag have a blank album, which is never shown. */
     const val UNKNOWN_ALBUM = ""
-    const val UNKNOWN_GENRE = "Unknown genre"
+    /** Songs with no genre are left out of the Genres tab. */
+    const val UNKNOWN_GENRE = ""
 
     private val featSplit = Regex(
         """\s+[(\[]?(?:feat\.?|ft\.?|featuring)\s+.*$|\s*;\s*.*$|\s+/\s+.*$""",
@@ -46,7 +47,7 @@ object LibraryOrganizer {
             val albumCount = g.songs.filter { it.album.isNotBlank() }.map { it.albumId }.distinct().size
             g.copy(subtitle = "${plural(g.songs.size, "song")} · ${plural(albumCount, "album")}")
         }
-        val genres = groupNamed(songs) { it.genre }.map { g ->
+        val genres = groupNamed(songs.filter { it.genre.isNotBlank() }) { it.genre }.map { g ->
             g.copy(subtitle = plural(g.songs.size, "song"))
         }
 

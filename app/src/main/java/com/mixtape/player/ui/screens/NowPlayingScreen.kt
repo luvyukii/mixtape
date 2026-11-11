@@ -91,6 +91,8 @@ class NowPlayingActions(
     val onJumpTo: (Int) -> Unit,
     val onRemoveFromQueue: (Int) -> Unit,
     val onMoveInQueue: (Int, Int) -> Unit,
+    val onOpenArtist: (Song) -> Unit = {},
+    val onOpenAlbum: (Song) -> Unit = {},
 )
 
 /** Which Up-next row is being dragged, and how far it's moved from its slot. */
@@ -149,7 +151,7 @@ fun NowPlayingScreen(
                 )
                 LazyColumn(Modifier.weight(1f).fillMaxHeight()) {
                     item { Spacer(Modifier.height(16.dp)) }
-                    item { InfoBlock(state, crossfadeMs, analyzer, view) }
+                    item { InfoBlock(state, crossfadeMs, analyzer, view, actions) }
                     item { Transport(state, actions) }
                     item { Tuning(crossfadeMs, boostDb, actions) }
                     queueItems(state, actions, drag)
@@ -170,7 +172,7 @@ fun NowPlayingScreen(
                             .aspectRatio(1f),
                     )
                 }
-                item { InfoBlock(state, crossfadeMs, analyzer, view) }
+                item { InfoBlock(state, crossfadeMs, analyzer, view, actions) }
                 item { Transport(state, actions) }
                 item { Tuning(crossfadeMs, boostDb, actions) }
                 queueItems(state, actions, drag)
@@ -250,7 +252,7 @@ private fun ArtFrame(
 }
 
 @Composable
-private fun InfoBlock(state: PlaybackState, crossfadeMs: Int, analyzer: AudioAnalyzer, view: Int) {
+private fun InfoBlock(state: PlaybackState, crossfadeMs: Int, analyzer: AudioAnalyzer, view: Int, actions: NowPlayingActions) {
     val song = state.current
     Column(Modifier.padding(horizontal = 28.dp).fillMaxWidth()) {
         Text(
@@ -261,13 +263,36 @@ private fun InfoBlock(state: PlaybackState, crossfadeMs: Int, analyzer: AudioAna
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(2.dp))
-        Text(
-            song?.let { if (it.album.isBlank()) it.artist else "${it.artist}  ·  ${it.album}" } ?: "",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Tac.GreenMid,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        // Artist and album are links: tap to open their pages.
+        if (song != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    song.artist,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Tac.Green,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .clickable { actions.onOpenArtist(song) }
+                        .padding(vertical = 4.dp),
+                )
+                if (song.album.isNotBlank()) {
+                    Text("  ·  ", style = MaterialTheme.typography.bodyMedium, color = Tac.GreenDim)
+                    Text(
+                        song.album,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Tac.GreenMid,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .clickable { actions.onOpenAlbum(song) }
+                            .padding(vertical = 4.dp),
+                    )
+                }
+            }
+        }
         Spacer(Modifier.height(14.dp))
         Text(
             listOf(

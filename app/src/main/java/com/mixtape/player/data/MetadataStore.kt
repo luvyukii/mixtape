@@ -8,7 +8,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONObject
 import java.io.File
 
-/** Info you've edited for a song. A null field means "keep what the file says". */
+/**
+ * Info you've edited for a song. A null field means "keep what the file says"; an empty
+ * text field (or year 0) means "clear it". [artwork] is a picture saved in the app's storage.
+ */
 data class SongEdit(
     val title: String? = null,
     val artist: String? = null,
@@ -17,6 +20,7 @@ data class SongEdit(
     val genre: String? = null,
     val year: Int? = null,
     val track: Int? = null,
+    val artwork: String? = null,
 ) {
     fun mergedWith(newer: SongEdit) = SongEdit(
         title = newer.title ?: title,
@@ -26,6 +30,7 @@ data class SongEdit(
         genre = newer.genre ?: genre,
         year = newer.year ?: year,
         track = newer.track ?: track,
+        artwork = newer.artwork ?: artwork,
     )
 }
 
@@ -77,6 +82,7 @@ class MetadataStore(context: Context) {
                         genre = e.optStringOrNull("genre"),
                         year = if (e.has("year")) e.getInt("year") else null,
                         track = if (e.has("track")) e.getInt("track") else null,
+                        artwork = e.optStringOrNull("artwork"),
                     )
                 }
             }.toMap()
@@ -97,6 +103,7 @@ class MetadataStore(context: Context) {
                 e.genre?.let { put("genre", it) }
                 e.year?.let { put("year", it) }
                 e.track?.let { put("track", it) }
+                e.artwork?.let { put("artwork", it) }
             })
         }
         val tmp = File(file.parentFile, file.name + ".tmp")

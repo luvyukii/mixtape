@@ -9,6 +9,8 @@ import com.mixtape.player.data.PlaylistEntry
 import com.mixtape.player.data.PlaylistSource
 import com.mixtape.player.data.Song
 import com.mixtape.player.data.SongEdit
+import com.mixtape.player.data.LookupMatch
+import com.mixtape.player.data.MusicBrainz
 import com.mixtape.player.data.TagWriter
 import com.mixtape.player.data.UnsupportedFormatException
 import android.app.RecoverableSecurityException
@@ -96,8 +98,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * Saves edited info. It shows in NEXUS right away; with [writeToFile] it's also
      * written into the files so other apps see it.
      */
-    fun saveSongInfo(songs: List<Song>, edit: SongEdit, writeToFile: Boolean, renumber: Boolean = false) {
+    fun saveSongInfo(
+        songs: List<Song>,
+        edit: SongEdit,
+        writeToFile: Boolean,
+        renumber: Boolean = false,
+        artwork: LookupMatch? = null,
+    ) {
         if (songs.isEmpty()) return
+        if (artwork != null) {
+            // Fetch the chosen cover first, keep a copy in the app, then save everything together.
+            runTask("Fetching artwork…") {
+                val bytes = MusicBrainz.cover(artwork, 500) ?: MusicBrainz.cover(artwork, 250)
+                val path = bytes?.let { b ->
+                    withContext(Dispatchers.IO) {
+                        val dir = java.io.File(app.filesDir, "art").apply { mkdirs() }
+                        java.io.File(dir, "${songs.first().id}_${System.currentTimeMillis()}.jpg")
+                            .apply { writeBytes(b) }.absolutePath
+                    }
+                }
+                if (path == null) say("No artwork found for that match; saved the rest")
+                saveSongInfo(songs, if (path != null) edit.copy(artwork = path) else edit, writeToFile, renumber, null)
+            }
+            return
+        }
         // With renumbering, each song gets its own track number in the order they were picked.
         val items = songs.mapIndexed { i, s ->
             s to if (renumber) edit.copy(track = (s.track / 1000) * 1000 + i + 1) else edit

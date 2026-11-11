@@ -28,6 +28,8 @@ data class Song(
     val artId: Long = albumId,
     /** File's last-modified time (seconds), used to cache tag checks. */
     val modified: Long = 0,
+    /** Cover picked in NEXUS (a file in the app's storage), shown instead of the embedded one. */
+    val artOverride: String? = null,
 ) {
     val artUri: Uri get() = ContentUris.withAppendedId(ALBUM_ART_BASE, artId)
 
@@ -53,6 +55,7 @@ data class Song(
                 -1L - ("${newAlbum.lowercase()}|${newAlbumArtist.lowercase()}".hashCode().toLong() and 0x7fffffffL)
             } else albumId,
             artId = artId,
+            artOverride = e.artwork ?: artOverride,
         )
     }
 }

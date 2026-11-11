@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.CompositionLocalProvider
 import com.mixtape.player.ui.components.TacHeader
 import com.mixtape.player.ui.components.Glyphs
+import com.mixtape.player.data.LibraryOrganizer
 import com.mixtape.player.ui.components.GlobeBackdrop
 import com.mixtape.player.ui.components.ScanSweep
 import com.mixtape.player.ui.components.crtPower
@@ -426,6 +427,24 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
                             onJumpTo = vm::jumpTo,
                             onRemoveFromQueue = vm::removeFromQueue,
                             onMoveInQueue = vm::moveInQueue,
+                            onOpenArtist = { song ->
+                                val s = library.byId[song.id] ?: song
+                                nowPlayingOpen = false
+                                selection.clear()
+                                tab = Tab.Library
+                                stack.clear()
+                                stack.add(Detail.ArtistD(LibraryOrganizer.groupKey(s.primaryArtist)))
+                            },
+                            onOpenAlbum = { song ->
+                                val s = library.byId[song.id] ?: song
+                                if (s.album.isNotBlank()) {
+                                    nowPlayingOpen = false
+                                    selection.clear()
+                                    tab = Tab.Library
+                                    stack.clear()
+                                    stack.add(Detail.AlbumD(s.albumId))
+                                }
+                            },
                         )
                     },
                 )
@@ -439,10 +458,10 @@ fun MixtapeRoot(vm: MainViewModel, platform: PlatformActions) {
         EditInfoDialog(
             songs = songs,
             onDismiss = { editing = null },
-            onSave = { edit, toFile, renumber ->
+            onSave = { edit, toFile, renumber, artwork ->
                 editing = null
                 selection.clear()
-                vm.saveSongInfo(songs, edit, toFile, renumber)
+                vm.saveSongInfo(songs, edit, toFile, renumber, artwork)
             },
         )
     }

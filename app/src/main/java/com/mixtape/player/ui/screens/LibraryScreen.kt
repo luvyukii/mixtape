@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -103,7 +104,7 @@ fun LibraryScreen(
 
         when {
             library.songs.isEmpty() && !scanning -> EmptyLibrary(onAddFiles, onRescan)
-            query.isNotBlank() -> SearchResults(library, query.trim(), currentSongId, actions, onOpen, onPlay)
+            query.isNotBlank() -> SearchResults(library, query.trim(), currentSongId, actions, onOpen, onPlay, onShuffle)
             else -> {
                 LibraryHud(library)
                 TacTabsRow(
@@ -279,6 +280,7 @@ private fun SearchResults(
     actions: SongActions,
     onOpen: (Detail) -> Unit,
     onPlay: (List<Song>, Int) -> Unit,
+    onShuffle: (List<Song>) -> Unit,
 ) {
     val q = query.lowercase()
     val songs = remember(library, q) {
@@ -326,6 +328,26 @@ private fun SearchResults(
             }
         }
         if (songs.isNotEmpty()) {
+            item {
+                // Play or shuffle every song that matches, not just the ones on screen.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    TacButton(onClick = { onShuffle(songs) }) {
+                        Icon(Icons.Rounded.Shuffle, null, Modifier.size(16.dp))
+                        Spacer(Modifier.size(8.dp))
+                        Text("SHUFFLE ${songs.size}")
+                    }
+                    TacOutlinedButton(onClick = { onPlay(songs, 0) }) {
+                        Icon(Icons.Rounded.PlayArrow, null, Modifier.size(16.dp))
+                        Spacer(Modifier.size(8.dp))
+                        Text("PLAY")
+                    }
+                }
+            }
             item { SectionHeader("Songs") }
             itemsIndexed(songs.take(200), key = { _, s -> "song:${s.id}" }) { i, song ->
                 SongRow(song, song.id == currentSongId, actions, onClick = { onPlay(songs, i) })
